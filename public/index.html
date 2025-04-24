@@ -1,0 +1,1982 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-960JDDS52W"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-960JDDS52W');
+    </script>
+    <title>3D Football Sim - Select Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Basic styling for body */
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0;
+            height: 100vh; /* Full viewport height */
+            width: 100vw; /* Full viewport width */
+            display: flex; /* Use flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            overflow: hidden; /* Prevent scrollbars on body */
+        }
+
+        /* Canvas styling */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute; /* Take up full space behind UI */
+            top: 0;
+            left: 0;
+            z-index: 0; /* Behind UI elements */
+        }
+
+        /* Front Page Container */
+        #frontPage {
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly more opaque */
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            z-index: 10; /* Ensure it's above the canvas */
+            max-width: 500px;
+            width: 90%;
+        }
+
+        /* Simulation Container (holds canvas and UI overlays) */
+        #simulationContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Initially hidden */
+            overflow: hidden; /* Prevent scrollbars within the sim container */
+        }
+
+
+        /* Styling for the information overlay */
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            z-index: 100;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 8px;
+            max-width: calc(100% - 20px);
+        }
+
+        #scoreBoard {
+            font-weight: bold;
+            text-align: center;
+            flex-grow: 1;
+            min-width: 150px;
+        }
+
+        #info span {
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+
+        /* Styling for the loading indicator */
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: black;
+            font-size: 1.2em; /* Slightly smaller */
+            font-weight: bold;
+            z-index: 101;
+            background-color: rgba(255, 255, 255, 0.85); /* Semi-transparent white background */
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+            display: none; /* Initially hidden, shown during load */
+        }
+
+        #loading.error { /* Style for error messages */
+            color: red;
+        }
+
+        /* Container for all controls at the bottom */
+        #controlsContainer {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 8px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 80%;
+            max-width: 800px;
+        }
+
+        /* Styling for the playback controls row */
+        #playbackControls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* General button styling */
+        #playbackControls button,
+        #frontPage button {
+            border: none;
+            color: white;
+            padding: 10px 18px; /* Slightly larger padding */
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: bold; /* Bold text */
+            border-radius: 8px; /* More rounded */
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease; /* Add transform transition */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+        }
+
+        #playbackControls button:active,
+        #frontPage button:active {
+            transform: scale(0.98); /* Slight shrink on click */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+
+        #playbackControls button:hover,
+        #frontPage button:hover {
+            filter: brightness(1.1); /* Brighter on hover */
+        }
+
+        #playbackControls button:disabled {
+            background-color: #cccccc !important; /* Use important to override */
+            color: #666666;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Specific button colors */
+        #loadUrlBtn { background-color: #3b82f6; } /* Blue */
+        #loadUrlBtn:hover { background-color: #2563eb; }
+        #loadRandomBtn { background-color: #22c55e; } /* Green */
+        #loadRandomBtn:hover { background-color: #16a34a; }
+        #playPauseBtn { background-color: #16a34a; } /* Green */
+        #playPauseBtn:hover { background-color: #15803d; }
+        #resetBtn { background-color: #ef4444; } /* Red */
+        #resetBtn:hover { background-color: #dc2626; }
+
+
+        #playbackControls label {
+            color: white;
+            margin-right: 5px;
+            font-size: 14px;
+            align-self: center;
+        }
+
+        #playbackControls input[type=range] {
+            cursor: pointer;
+            align-self: center;
+            max-width: 100px;
+        }
+
+        #playbackControls span {
+            align-self: center;
+            min-width: 40px;
+            color: white;
+            font-size: 14px;
+        }
+
+        #seekContainer {
+            width: 100%;
+            position: relative;
+            height: 25px;
+            margin-bottom: 5px;
+        }
+
+        #seekBar {
+            width: 100%;
+            cursor: pointer;
+            height: 10px;
+            border-radius: 5px;
+            background: #555;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            position: absolute;
+            bottom: 5px;
+            left: 0;
+        }
+
+        #seekBar:disabled {
+            cursor: not-allowed;
+            background: #777;
+        }
+
+        #seekBar::-webkit-slider-thumb {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -5px; /* Adjust thumb position vertically */
+        }
+        #seekBar:disabled::-webkit-slider-thumb {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+
+        #seekBar::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        #seekBar:disabled::-moz-range-thumb {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+        #seekBar::-moz-range-track {
+            width: 100%;
+            height: 10px;
+            background: #555;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #seekBar:disabled::-moz-range-track {
+            background: #777;
+            cursor: not-allowed;
+        }
+
+
+        .goal-marker {
+            position: absolute;
+            bottom: 0px; /* Align with the bottom of the seek container */
+            width: 3px;
+            height: 18px; /* Make marker taller */
+            background-color: yellow;
+            transform: translateX(-50%);
+            z-index: -1; /* Behind the thumb */
+            pointer-events: none; /* Don't interfere with seek bar interaction */
+        }
+
+        /* Styling for Front Page Elements */
+        #urlInput {
+            width: 100%;
+            padding: 0.75rem; /* More padding */
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 0.375rem; /* rounded-md */
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        #errorMessage {
+            color: #dc2626; /* Red */
+            margin-top: 0.75rem;
+            min-height: 1.2em; /* Reserve space */
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        /* Styling for Goal Flash Message */
+        #goalFlashMessage {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5em; /* Large text */
+            color: yellow;
+            background-color: rgba(0,0,0,0.7);
+            padding: 20px 40px;
+            border-radius: 10px;
+            z-index: 200; /* Above everything */
+            text-align: center;
+            font-weight: bold;
+            white-space: nowrap; /* Prevent wrapping */
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.8); /* Text shadow for pop */
+            animation: goalFlashAnimation 0.5s ease-out forwards; /* Add animation */
+        }
+
+        /* Simple flashing animation for the goal text */
+        @keyframes goalFlashAnimation {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div id="frontPage">
+        <h1 class="text-2xl font-bold mb-4 text-gray-800">3D Football StatsBomb Event Viewer</h1>
+        <p class="mb-6 text-gray-600">Enter a StatsBomb event data URL (raw JSON link) or load a random game.</p>
+        <input type="url" id="urlInput" placeholder="Paste raw StatsBomb JSON URL (e.g., from raw.githubusercontent.com)" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline mb-4">
+        <div class="flex justify-center gap-4 mb-4">
+            <button id="loadUrlBtn">Load URL</button>
+            <button id="loadRandomBtn">Load Random Game</button>
+        </div>
+        <div id="errorMessage"></div>
+        <p class="text-xs text-gray-500 mt-4">Powered by <a href="https://github.com/statsbomb/open-data" target="_blank" rel="noopener noreferrer">StatsBomb Open Data</a></p>
+    </div>
+
+    <div id="simulationContainer">
+        <div id="info">
+            <div>
+                <span>Time: <span id="timer">00:00</span></span>
+            </div>
+            <div id="scoreBoard">
+                <span id="homeTeamName">Home</span> <span id="homeScore">0</span> - <span id="awayScore">0</span> <span id="awayTeamName">Away</span>
+            </div>
+            <div>
+                <span>Event: <span id="event-type">None</span></span>
+                <span>Player: <span id="event-player-name">N/A</span></span>
+            </div>
+        </div>
+
+        <div id="loading">Loading Event Data...</div>
+
+        <div id="goalFlashMessage">GOAL!</div>
+
+        <div id="controlsContainer">
+            <div id="seekContainer">
+                <input type="range" id="seekBar" min="0" value="0" step="1" disabled>
+                </div>
+            <div id="playbackControls">
+                <button id="playPauseBtn" disabled>Play</button>
+                <button id="resetBtn" disabled>Reset</button>
+                <label for="speedControl">Speed:</label>
+                <input type="range" id="speedControl" min="0.1" max="10" value="1" step="0.1">
+                <span id="speedValue">1.0x</span>
+            </div>
+        </div>
+    </div>
+
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        // Import necessary Three.js components
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        // Import TWEEN for animations
+        import * as TWEEN from 'https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/libs/tween.module.min.js';
+
+        console.log("Script start: Setting up simulation environment.");
+
+        // --- Configuration Constants ---
+        const PITCH_LENGTH = 120;
+        const PITCH_WIDTH = 80;
+        const PLAYER_RADIUS = 0.8;
+        const PLAYER_HEIGHT = 2.5;
+        const BALL_RADIUS = 0.4;
+        const BASE_DATA_URL = 'https://raw.githubusercontent.com/statsbomb/open-data/master/data/events/'; // Base URL for random games
+        const TEAM1_COLOR = 0xff4136; // Red
+        const TEAM2_COLOR = 0x0074D9; // Blue
+        const BALL_COLOR = 0xffffff;
+        const DEFAULT_PLAYER_COLOR = 0x888888;
+        const EVENT_DELAY_MS = 50; // Default delay between non-animated events
+        const NAME_TEXT_SIZE = 16;
+        const NAME_TEXT_COLOR = '#FFFFFF';
+        const NAME_BACKGROUND_COLOR = 'rgba(0, 0, 0, 0.6)';
+        const NAME_Y_OFFSET = 1.2; // Vertical offset for player name sprite
+        const BALL_ARC_HEIGHT = 3; // Max height of ball arc during pass/shot
+        const PLAYER_MOVE_DURATION = 400; // Duration for player movement tween
+        const RECENT_EVENT_LOOKBACK = 8; // How many past events to consider for player visibility
+        const PREVIOUS_EVENT_CHECK = RECENT_EVENT_LOOKBACK - 1; // Index offset for recent involvement check
+        const FADE_OUT_DURATION = 300; // Duration for player fade-out animation
+        const BALL_ANIM_DURATION_DEFAULT = 200;
+        const BALL_ANIM_DURATION_PASS = 500;
+        const BALL_ANIM_DURATION_SHOT = 350;
+        const GOAL_HIGHLIGHT_OFFSET = 2; // How many events before goal to place marker
+        const GOAL_PAUSE_DURATION = 5000; // Pause duration after a goal is scored
+        const GOAL_FLASH_DURATION = 2000; // How long the "GOAL!" message stays visible
+        const FREEZE_FRAME_PAUSE_DURATION = 3000; // Pause duration after showing freeze frame before shot (at 1x speed)
+        const CARRY_SPEED = 10; // Units per second for carry animation
+        const MIN_CARRY_DURATION = 100; // Minimum duration for carry animation
+        const freezeFrameEventTypes = new Set(['Shot', 'Pressure', 'Block']); // Events that might have freeze_frame data
+        const HIGHLIGHT_COLOR = 0xffff00; // Yellow highlight
+        const FOUL_HIGHLIGHT_COLOR = 0xff0000; // Red highlight for fouls
+        const HIGHLIGHT_DURATION = 500; // Default duration for player highlight
+        const SHORT_PAUSE_DURATION = 300; // Short pause for specific events like fouls, saves
+        const SIDELINE_Z = -2; // Z-coordinate for substitutions
+        const MISCONTROL_DISTANCE = 1.5; // Max distance ball moves on miscontrol
+        const CAMERA_SHAKE_INTENSITY = 0.3; // Intensity of camera shake on goal
+        const CAMERA_SHAKE_DURATION = 400; // Duration of camera shake on goal
+
+        // --- List of Random Game IDs (from user input - truncated for brevity) ---
+        const randomGameIds = [ "15946", "15956", "15973", "15978", "15986", /* ... many more IDs ... */ "3775635" ];
+
+        // --- Global Variables ---
+        let scene, camera, renderer, controls;
+        let pitchMesh, ballMesh;
+        const playersData = {}; // Stores data for each player { id, name, teamId, jerseyNumber, mesh, nameSprite, ... }
+        let homeTeamId = null, awayTeamId = null;
+        let homeTeamName = 'Home', awayTeamName = 'Away';
+        let homeScore = 0, awayScore = 0;
+        let homeLineup = [], awayLineup = []; // Arrays of player IDs
+        let events = []; // Array of event objects from JSON
+        let currentEventIndex = -1; // Index of the currently processed event
+        let lastTimestamp = 0; // For animation loop timing
+        let isPlaying = false; // Simulation playback state
+        let playbackSpeed = 1.0; // Controls animation speed
+        let isProcessingEvent = false; // Flag to prevent concurrent event processing
+        let isLoading = false; // Tracks data loading state
+        let isSeeking = false; // Flag to indicate if user is dragging the seek bar
+        let eventHistoryInvolvedIds = []; // History of player IDs involved in recent events (for visibility)
+        let goalEventIndices = []; // Indices of goal events (for seek bar markers)
+        let dataUrl = null; // URL for the event data, set by user
+        let animationFrameId = null; // To control the animation loop
+        let cameraShakeActive = false; // Flag to manage camera shake state
+        let originalCameraPosition = new THREE.Vector3(); // To store camera position before shake
+
+        // --- HTML Element References ---
+        const frontPage = document.getElementById('frontPage');
+        const simulationContainer = document.getElementById('simulationContainer');
+        const urlInput = document.getElementById('urlInput');
+        const loadUrlBtn = document.getElementById('loadUrlBtn');
+        const loadRandomBtn = document.getElementById('loadRandomBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const timerElement = document.getElementById('timer');
+        const eventTypeElement = document.getElementById('event-type');
+        const eventPlayerNameElement = document.getElementById('event-player-name');
+        const loadingElement = document.getElementById('loading');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const speedControl = document.getElementById('speedControl');
+        const speedValue = document.getElementById('speedValue');
+        const homeTeamNameElement = document.getElementById('homeTeamName');
+        const awayTeamNameElement = document.getElementById('awayTeamName');
+        const homeScoreElement = document.getElementById('homeScore');
+        const awayScoreElement = document.getElementById('awayScore');
+        const seekBar = document.getElementById('seekBar');
+        const seekContainer = document.getElementById('seekContainer');
+        const goalFlashMessage = document.getElementById('goalFlashMessage'); // Reference to the goal flash element
+
+        // --- Core Setup Function ---
+        // Initializes Three.js, pitch, ball, basic UI listeners, and starts animation loop.
+        // Does NOT load event data.
+        function setupCore() {
+            console.log("setupCore() called: Initializing scene and base elements.");
+            try {
+                setupScene();          // Initialize Three.js scene, camera, renderer, lights, controls
+                createPitch();         // Create the pitch geometry, texture, and markings
+                createBall();          // Create the ball geometry and mesh
+                setupBaseEventListeners(); // Add listeners for UI controls (play/pause, speed, reset, resize)
+                lastTimestamp = performance.now(); // Initialize timestamp for animation loop
+                animate(lastTimestamp); // Start the main animation loop
+                console.log("setupCore() completed successfully.");
+            } catch (error) {
+                console.error("--- ERROR DURING CORE SETUP ---", error);
+                // Display error prominently if core setup fails
+                frontPage.innerHTML = `<h1 class="text-2xl font-bold text-red-600">Initialization Error!</h1><p class="text-gray-600">Could not set up the 3D environment. Please check the console for details.</p>`;
+            }
+        }
+
+        // --- Scene Setup Function ---
+        // Configures the Three.js scene, camera, renderer, lighting, and orbit controls.
+        function setupScene() {
+            console.log("Setting up scene...");
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x67A8E0); // Light blue background
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(PITCH_LENGTH * 0.5, PITCH_WIDTH, PITCH_LENGTH * 0.7); // Positioned above and looking down
+            originalCameraPosition.copy(camera.position); // Store initial position
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true; // Enable shadows
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+            // Append canvas to the simulation container, not the body directly
+            simulationContainer.appendChild(renderer.domElement);
+
+            // OrbitControls setup (allows mouse interaction)
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(PITCH_LENGTH / 2, 0, PITCH_WIDTH / 2); // Look at the center of the pitch
+            controls.enableDamping = true; // Smooth camera movement
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false; // Prevent panning off target
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Limit looking angle (don't look from below)
+            controls.minDistance = 30; // Limit zoom in
+            controls.maxDistance = 300; // Limit zoom out
+            // Store original target when setting up controls
+            controls.userData = { originalTarget: controls.target.clone() };
+
+
+            // Lighting setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Soft ambient light
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); // Main directional light (like sun)
+            directionalLight.position.set(80, 120, 60); // Position the light source
+            directionalLight.castShadow = true; // Enable shadow casting
+            // Configure shadow properties for better quality
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 500;
+            directionalLight.shadow.camera.left = -PITCH_LENGTH;
+            directionalLight.shadow.camera.right = PITCH_LENGTH;
+            directionalLight.shadow.camera.top = PITCH_WIDTH;
+            directionalLight.shadow.camera.bottom = -PITCH_WIDTH;
+            scene.add(directionalLight);
+            console.log("Scene setup complete.");
+        }
+
+        // --- Base Event Listener Setup Function ---
+        // Attaches event listeners to UI elements (excluding seek bar initially) and the window.
+        function setupBaseEventListeners() {
+            console.log("Adding base event listeners (play/pause, speed, reset, resize)...");
+            window.addEventListener('resize', onWindowResize, false); // Handle window resizing
+            playPauseBtn.addEventListener('click', togglePlayPause); // Handle play/pause button clicks
+            resetBtn.addEventListener('click', resetSimulation); // Handle reset button clicks
+            // Handle speed control slider changes
+            speedControl.addEventListener('input', (e) => {
+                playbackSpeed = parseFloat(e.target.value);
+                speedValue.textContent = `${playbackSpeed.toFixed(1)}x`;
+            });
+            // Seek bar listener is added later in loadEventData after data is loaded
+            console.log("Base event listeners added.");
+        }
+
+        // --- Start Game Function ---
+        // Validates the URL, hides the front page, shows the simulation, and initiates data loading.
+        function startGame(urlToLoad) {
+            console.log(`startGame called with URL: ${urlToLoad}`);
+            errorMessage.textContent = ''; // Clear previous errors
+
+            // Basic URL validation
+            let isValid = false;
+            try {
+                const parsedUrl = new URL(urlToLoad);
+                // Check if it's a likely raw JSON URL from GitHub or ends with .json
+                isValid = (parsedUrl.hostname === 'raw.githubusercontent.com' || urlToLoad.endsWith('.json')) &&
+                          (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:');
+            } catch (_) {
+                isValid = false; // Invalid URL format
+            }
+
+            if (!isValid) {
+                console.error("Invalid URL provided:", urlToLoad);
+                errorMessage.textContent = 'Invalid URL. Please provide a direct link to a raw JSON file (e.g., from raw.githubusercontent.com).';
+                return;
+            }
+
+            dataUrl = urlToLoad; // Set the global data URL
+
+            // Transition UI: Hide front page, show simulation container and loading indicator
+            frontPage.style.display = 'none';
+            simulationContainer.style.display = 'block';
+            loadingElement.textContent = 'Loading Event Data...';
+            loadingElement.classList.remove('error'); // Ensure error class is removed
+            loadingElement.style.display = 'block';
+
+            // Disable controls during load
+            playPauseBtn.disabled = true;
+            resetBtn.disabled = true;
+            seekBar.disabled = true;
+
+            // Start loading the data
+            loadEventData(dataUrl);
+        }
+
+        // --- Load Event Data ---
+        // Fetches event data from the specified URL and performs setup *after* loading.
+        async function loadEventData(url) {
+            console.log("loadEventData() started for URL:", url);
+            isLoading = true; // Set loading flag
+
+            try {
+                console.log(`Attempting to fetch data from ${url}...`);
+                const response = await fetch(url);
+                if (!response.ok) { // Check if fetch was successful
+                    throw new Error(`HTTP error! Status: ${response.status} ${response.statusText}`);
+                }
+                // Clear previous data before loading new data
+                events = [];
+                goalEventIndices = [];
+                clearField(); // Clear existing player meshes/sprites
+                TWEEN.removeAll(); // Stop all animations
+
+                events = await response.json(); // Parse JSON data
+                console.log(`Loaded ${events.length} events.`);
+
+                // Process the loaded data
+                parseStartingLineupsAndInitialPositions(); // Extract player/team info and calculate initial positions
+                setupInitialField(); // Place players on the pitch based on initial positions
+
+                // --- Find goal events and set up seek bar / markers ---
+                seekContainer.querySelectorAll('.goal-marker').forEach(marker => marker.remove()); // Clear old markers
+
+                if (events.length > 0) {
+                    events.forEach((event, index) => {
+                        // Check for goal events to mark on the seek bar
+                        if (event.type?.name === 'Shot' && event.shot?.outcome?.name === 'Goal') {
+                            goalEventIndices.push(index);
+                            // Place marker slightly before the goal event index for better context
+                            const highlightIndex = Math.max(0, index - GOAL_HIGHLIGHT_OFFSET);
+                            const percent = events.length > 1 ? (highlightIndex / (events.length - 1)) * 100 : 0;
+                            const marker = document.createElement('div');
+                            marker.className = 'goal-marker';
+                            marker.style.left = `${percent}%`;
+                            marker.title = `Goal buildup around event ${index}`;
+                            seekContainer.appendChild(marker);
+                        }
+                    });
+                    console.log(`Found ${goalEventIndices.length} goal events and created markers.`);
+                    seekBar.max = events.length - 1; // Set seek bar range
+                    // Add seek bar listener *now* that data is loaded and max is set
+                    seekBar.removeEventListener('input', handleSeekInput); // Remove previous listener if any
+                    seekBar.addEventListener('input', handleSeekInput);
+                    console.log("Seek bar listener added.");
+                } else {
+                    seekBar.max = 0; // No events, set max to 0
+                    console.log("No events loaded, seek bar max set to 0.");
+                }
+                // --- End goal/seek setup ---
+
+                // Hide loading indicator and enable controls
+                loadingElement.style.display = 'none';
+                playPauseBtn.disabled = false;
+                resetBtn.disabled = false;
+                seekBar.disabled = false;
+                isLoading = false;
+                console.log("Data loading & initial setup successful.");
+
+                // Reset simulation to start state after loading
+                resetSimulation();
+
+            } catch (error) {
+                console.error('Error loading or processing event data:', error);
+                loadingElement.textContent = `Error loading data from ${url}. Check URL or console.`;
+                loadingElement.classList.add('error'); // Add error styling
+                // Keep controls disabled on error
+                playPauseBtn.disabled = true;
+                resetBtn.disabled = true;
+                seekBar.disabled = true;
+                isLoading = false;
+            }
+            console.log("loadEventData() finished");
+        }
+
+        // --- Create Pitch Function ---
+        // Generates the pitch plane, texture, markings, goals, and corner flags.
+        function createPitch() {
+            console.log("Creating pitch geometry and markings...");
+            // --- Pitch Surface (Striped Texture) ---
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 512;
+            const context = canvas.getContext('2d');
+            const baseGreen = '#1A5D3A'; const stripeGreen = '#238250'; // Two shades of green
+            const stripeWidth = canvas.width / 2;
+            context.fillStyle = baseGreen; context.fillRect(0, 0, stripeWidth, canvas.height);
+            context.fillStyle = stripeGreen; context.fillRect(stripeWidth, 0, stripeWidth, canvas.height);
+            const pitchTexture = new THREE.CanvasTexture(canvas);
+            pitchTexture.wrapS = THREE.RepeatWrapping; pitchTexture.wrapT = THREE.RepeatWrapping;
+            pitchTexture.repeat.set(6, 1); // Repeat texture for stripes
+            const pitchGeometry = new THREE.PlaneGeometry(PITCH_LENGTH, PITCH_WIDTH);
+            const pitchMaterial = new THREE.MeshStandardMaterial({ map: pitchTexture, side: THREE.DoubleSide });
+            pitchMesh = new THREE.Mesh(pitchGeometry, pitchMaterial);
+            pitchMesh.rotation.x = -Math.PI / 2; // Rotate plane to be horizontal
+            pitchMesh.position.set(PITCH_LENGTH / 2, 0, PITCH_WIDTH / 2); // Center the pitch
+            pitchMesh.receiveShadow = true; // Allow pitch to receive shadows
+            scene.add(pitchMesh);
+
+            // --- Pitch Markings (Lines, Circles, Arcs) ---
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+            const yLevel = 0.1; // Slightly above the pitch surface to avoid z-fighting
+            const markings = new THREE.Group(); // Group all markings together
+            // Helper function to add lines
+            const addLine = (x1, z1, x2, z2) => {
+                const points = [new THREE.Vector3(x1, yLevel, z1), new THREE.Vector3(x2, yLevel, z2)];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                markings.add(new THREE.LineSegments(geometry, lineMaterial));
+            };
+            // Boundary lines
+            addLine(0, 0, PITCH_LENGTH, 0); addLine(0, PITCH_WIDTH, PITCH_LENGTH, PITCH_WIDTH); // Sidelines
+            addLine(0, 0, 0, PITCH_WIDTH); addLine(PITCH_LENGTH, 0, PITCH_LENGTH, PITCH_WIDTH); // Goal lines
+            // Halfway line
+            addLine(PITCH_LENGTH / 2, 0, PITCH_LENGTH / 2, PITCH_WIDTH);
+            // Center circle (using RingGeometry for thickness)
+            const centerCircleRadius = 9.15; const centerCircleThickness = 0.15;
+            const centerCircleGeo = new THREE.RingGeometry(centerCircleRadius, centerCircleRadius + centerCircleThickness, 64);
+            const centerCircleMesh = new THREE.Mesh(centerCircleGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+            centerCircleMesh.rotation.x = -Math.PI / 2; centerCircleMesh.position.set(PITCH_LENGTH / 2, yLevel, PITCH_WIDTH / 2);
+            markings.add(centerCircleMesh);
+            // Center spot
+            const centerSpotGeo = new THREE.CircleGeometry(0.3, 16); const centerSpotMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const centerSpot = new THREE.Mesh(centerSpotGeo, centerSpotMat);
+            centerSpot.position.set(PITCH_LENGTH / 2, yLevel, PITCH_WIDTH / 2); centerSpot.rotation.x = -Math.PI / 2;
+            markings.add(centerSpot);
+            // Penalty areas and Goal areas
+            const penaltyAreaLength = 18; const penaltyAreaWidth = 44;
+            const goalAreaLength = 6; const goalAreaWidth = 20;
+            const penaltySpotDist = 12;
+            const penaltyZ1 = (PITCH_WIDTH - penaltyAreaWidth) / 2; const penaltyZ2 = penaltyZ1 + penaltyAreaWidth;
+            const goalZ1 = (PITCH_WIDTH - goalAreaWidth) / 2; const goalZ2 = goalZ1 + goalAreaWidth;
+            // Left side areas
+            addLine(0, penaltyZ1, penaltyAreaLength, penaltyZ1); addLine(penaltyAreaLength, penaltyZ1, penaltyAreaLength, penaltyZ2); addLine(0, penaltyZ2, penaltyAreaLength, penaltyZ2);
+            addLine(0, goalZ1, goalAreaLength, goalZ1); addLine(goalAreaLength, goalZ1, goalAreaLength, goalZ2); addLine(0, goalZ2, goalAreaLength, goalZ2);
+            // Right side areas
+            addLine(PITCH_LENGTH, penaltyZ1, PITCH_LENGTH - penaltyAreaLength, penaltyZ1); addLine(PITCH_LENGTH - penaltyAreaLength, penaltyZ1, PITCH_LENGTH - penaltyAreaLength, penaltyZ2); addLine(PITCH_LENGTH, penaltyZ2, PITCH_LENGTH - penaltyAreaLength, penaltyZ2);
+            addLine(PITCH_LENGTH, goalZ1, PITCH_LENGTH - goalAreaLength, goalZ1); addLine(PITCH_LENGTH - goalAreaLength, goalZ1, PITCH_LENGTH - goalAreaLength, goalZ2); addLine(PITCH_LENGTH, goalZ2, PITCH_LENGTH - goalAreaLength, goalZ2);
+            // Penalty spots
+            const penaltySpot = new THREE.Mesh(centerSpotGeo.clone(), centerSpotMat.clone());
+            penaltySpot.position.set(penaltySpotDist, yLevel, PITCH_WIDTH / 2); penaltySpot.rotation.x = -Math.PI / 2;
+            markings.add(penaltySpot);
+            const penaltySpotR = new THREE.Mesh(centerSpotGeo.clone(), centerSpotMat.clone());
+            penaltySpotR.position.set(PITCH_LENGTH - penaltySpotDist, yLevel, PITCH_WIDTH / 2); penaltySpotR.rotation.x = -Math.PI / 2;
+            markings.add(penaltySpotR);
+            // Penalty arcs (D)
+            const arcRadius = 9.15; const arcDistX = penaltyAreaLength - penaltySpotDist;
+            if (arcRadius > arcDistX) { // Ensure arc doesn't go beyond penalty area line
+                const angleOffset = Math.acos(arcDistX / arcRadius);
+                // Left arc
+                const startAngleRight = -angleOffset; const endAngleRight = angleOffset;
+                const curveLeft = new THREE.ArcCurve(penaltySpotDist, PITCH_WIDTH / 2, arcRadius, startAngleRight, endAngleRight, false);
+                const pointsLeft = curveLeft.getPoints(32).map(p => new THREE.Vector3(p.x, yLevel, p.y));
+                const arcGeoLeft = new THREE.BufferGeometry().setFromPoints(pointsLeft); markings.add(new THREE.Line(arcGeoLeft, lineMaterial));
+                // Right arc
+                const startAngleLeft = Math.PI - angleOffset; const endAngleLeft = Math.PI + angleOffset;
+                const curveRight = new THREE.ArcCurve(PITCH_LENGTH - penaltySpotDist, PITCH_WIDTH / 2, arcRadius, startAngleLeft, endAngleLeft, false);
+                const pointsRight = curveRight.getPoints(32).map(p => new THREE.Vector3(p.x, yLevel, p.y));
+                const arcGeoRight = new THREE.BufferGeometry().setFromPoints(pointsRight); markings.add(new THREE.Line(arcGeoRight, lineMaterial));
+            }
+            // Corner arcs
+            const cornerRadius = 1;
+            const createCornerArcPoints = (centerX, centerZ, radius, startAngle, endAngle) => new THREE.Path().absarc(centerX, centerZ, radius, startAngle, endAngle, false).getPoints(8).map(p => new THREE.Vector3(p.x, yLevel, p.y));
+            const cornerPointsTL = createCornerArcPoints(0, PITCH_WIDTH, cornerRadius, -Math.PI / 2, 0); markings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cornerPointsTL), lineMaterial));
+            const cornerPointsTR = createCornerArcPoints(PITCH_LENGTH, PITCH_WIDTH, cornerRadius, Math.PI, -Math.PI / 2); markings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cornerPointsTR), lineMaterial));
+            const cornerPointsBL = createCornerArcPoints(0, 0, cornerRadius, 0, Math.PI / 2); markings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cornerPointsBL), lineMaterial));
+            const cornerPointsBR = createCornerArcPoints(PITCH_LENGTH, 0, cornerRadius, Math.PI / 2, Math.PI); markings.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(cornerPointsBR), lineMaterial));
+            scene.add(markings); // Add all markings to the scene
+
+            // --- Goals ---
+            const goalWidth = 8; const goalHeight = 3; const goalPostRadius = 0.15; const netColor = 0xeeeeee; const postColor = 0xffffff; const netDepth = 2;
+            const postMaterial = new THREE.MeshStandardMaterial({ color: postColor }); const postGeo = new THREE.CylinderGeometry(goalPostRadius, goalPostRadius, goalHeight, 12);
+            const crossbarGeo = new THREE.CylinderGeometry(goalPostRadius, goalPostRadius, goalWidth, 12); crossbarGeo.rotateX(Math.PI / 2); // Rotate crossbar
+            const netLineMaterial = new THREE.LineBasicMaterial({ color: netColor, transparent: true, opacity: 0.5 });
+            // Helper function to create a goal
+            const createGoal = (xOffset) => {
+                const goalGroup = new THREE.Group(); const zPos1 = PITCH_WIDTH / 2 - goalWidth / 2; const zPos2 = PITCH_WIDTH / 2 + goalWidth / 2;
+                // Posts
+                const post1 = new THREE.Mesh(postGeo, postMaterial); post1.position.set(xOffset, goalHeight / 2, zPos1); post1.castShadow = true; goalGroup.add(post1);
+                const post2 = new THREE.Mesh(postGeo.clone(), postMaterial.clone()); post2.position.set(xOffset, goalHeight / 2, zPos2); post2.castShadow = true; goalGroup.add(post2);
+                // Crossbar
+                const crossbar = new THREE.Mesh(crossbarGeo, postMaterial.clone()); crossbar.position.set(xOffset, goalHeight, PITCH_WIDTH / 2); crossbar.castShadow = true; goalGroup.add(crossbar);
+                // Net (simple line representation)
+                const netPoints = []; const backX = xOffset === 0 ? -netDepth : xOffset + netDepth; // Back of the net
+                // Vertical lines at back
+                for (let z = zPos1; z <= zPos2; z += 0.5) { netPoints.push(new THREE.Vector3(backX, 0, z), new THREE.Vector3(backX, goalHeight, z)); }
+                // Horizontal lines at back
+                for (let y = 0; y <= goalHeight; y += 0.5) { netPoints.push(new THREE.Vector3(backX, y, zPos1), new THREE.Vector3(backX, y, zPos2)); }
+                // Vertical lines on sides
+                for (let x = Math.min(xOffset, backX); x <= Math.max(xOffset, backX); x += 0.5) { netPoints.push(new THREE.Vector3(x, 0, zPos1), new THREE.Vector3(x, goalHeight, zPos1)); }
+                // Horizontal lines on sides
+                for (let y = 0; y <= goalHeight; y += 0.5) { netPoints.push(new THREE.Vector3(xOffset, y, zPos1), new THREE.Vector3(backX, y, zPos1)); }
+                // Other side
+                for (let x = Math.min(xOffset, backX); x <= Math.max(xOffset, backX); x += 0.5) { netPoints.push(new THREE.Vector3(x, 0, zPos2), new THREE.Vector3(x, goalHeight, zPos2)); }
+                for (let y = 0; y <= goalHeight; y += 0.5) { netPoints.push(new THREE.Vector3(xOffset, y, zPos2), new THREE.Vector3(backX, y, zPos2)); }
+                // Top lines
+                for (let x = Math.min(xOffset, backX); x <= Math.max(xOffset, backX); x += 0.5) { netPoints.push(new THREE.Vector3(x, goalHeight, zPos1), new THREE.Vector3(x, goalHeight, zPos2)); }
+                const netGeo = new THREE.BufferGeometry().setFromPoints(netPoints); const netLines = new THREE.LineSegments(netGeo, netLineMaterial); goalGroup.add(netLines);
+                return goalGroup;
+            };
+            scene.add(createGoal(0)); scene.add(createGoal(PITCH_LENGTH)); // Add both goals
+
+            // --- Corner Flags ---
+            const flagHeight = 2; const flagRadius = 0.2; const flagGeo = new THREE.CylinderGeometry(flagRadius, flagRadius, flagHeight, 8); const flagMat = new THREE.MeshStandardMaterial({ color: 0xffff00 }); // Yellow flags
+            const corners = [{ x: 0, z: 0 }, { x: PITCH_LENGTH, z: 0 }, { x: 0, z: PITCH_WIDTH }, { x: PITCH_LENGTH, z: PITCH_WIDTH }];
+            corners.forEach(corner => { const flag = new THREE.Mesh(flagGeo, flagMat); flag.position.set(corner.x, flagHeight / 2, corner.z); flag.castShadow = true; scene.add(flag); });
+            console.log("Pitch creation complete.");
+        }
+
+        // --- Create Ball Function ---
+        // Creates the ball mesh.
+        function createBall() {
+            const ballGeometry = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
+            const ballMaterial = new THREE.MeshStandardMaterial({ color: BALL_COLOR });
+            ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
+            ballMesh.castShadow = true;
+            ballMesh.position.set(PITCH_LENGTH / 2, BALL_RADIUS, PITCH_WIDTH / 2); // Start at center spot
+            ballMesh.userData.lastSpinPos = null; // Initialize for spin calculation
+            scene.add(ballMesh);
+            console.log("Ball created.");
+        }
+
+        // --- Create Player Name Sprite Function ---
+        // Generates a text sprite to display player name and number above their mesh.
+        function createPlayerNameSprite(name, jerseyNumber) {
+            const canvas = document.createElement('canvas'); const context = canvas.getContext('2d');
+            const devicePixelRatio = window.devicePixelRatio || 1; // Adjust for high DPI displays
+            const baseTextSize = NAME_TEXT_SIZE;
+            const scaledTextSize = baseTextSize * devicePixelRatio; // Scale font size
+            const font = `Bold ${scaledTextSize}px Inter, sans-serif`;
+            context.font = font; const jerseyPrefix = jerseyNumber ? `#${jerseyNumber} ` : ''; const fullText = jerseyPrefix + name;
+            const textMetrics = context.measureText(fullText); const textWidth = textMetrics.width;
+            const basePadding = 16; const scaledPadding = basePadding * devicePixelRatio; // Scale padding
+            const baseCanvasHeight = NAME_TEXT_SIZE + 8; const scaledCanvasHeight = baseCanvasHeight * devicePixelRatio;
+            const scaledCanvasWidth = textWidth + scaledPadding; canvas.width = scaledCanvasWidth; canvas.height = scaledCanvasHeight;
+            // Redraw with scaled dimensions
+            context.font = font; context.fillStyle = NAME_BACKGROUND_COLOR; context.fillRect(0, 0, scaledCanvasWidth, scaledCanvasHeight);
+            context.fillStyle = NAME_TEXT_COLOR; context.textAlign = 'center'; context.textBaseline = 'middle';
+            context.fillText(fullText, scaledCanvasWidth / 2, scaledCanvasHeight / 2);
+            // Create texture and sprite
+            const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true; texture.minFilter = THREE.LinearMipmapLinearFilter;
+            texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = true;
+            const maxAnisotropy = renderer.capabilities.getMaxAnisotropy(); texture.anisotropy = maxAnisotropy; // Improve texture quality at angles
+            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true, opacity: 1, sizeAttenuation: true });
+            const sprite = new THREE.Sprite(material); const baseScaleFactor = 0.06; // Adjust sprite scale in world space
+            sprite.scale.set(scaledCanvasWidth * baseScaleFactor / devicePixelRatio, scaledCanvasHeight * baseScaleFactor / devicePixelRatio, 1);
+            sprite.center.set(0.5, 0); // Position anchor at bottom center
+            return sprite;
+        }
+
+        // --- Get Player Mesh Function ---
+        // Creates or retrieves a player mesh (capsule) with the correct team color.
+        function getPlayerMesh(playerId, teamId) {
+            const player = playersData[playerId];
+            // Check if mesh already exists and update color if necessary (e.g., after team ID determination)
+            if (player && player.mesh) {
+                if (homeTeamId !== null && awayTeamId !== null) {
+                    const isHomeTeamActual = player.teamId === homeTeamId;
+                    const expectedColor = player.teamId === null ? DEFAULT_PLAYER_COLOR : (isHomeTeamActual ? TEAM1_COLOR : TEAM2_COLOR);
+                    if (player.mesh.material.color.getHex() !== expectedColor) { player.mesh.material.color.setHex(expectedColor); }
+                }
+                return player.mesh;
+            }
+            // Create new mesh if it doesn't exist
+            const playerTeamId = player ? player.teamId : teamId; // Use teamId from player data if available
+            const isHomeTeam = playerTeamId === homeTeamId;
+            const color = (homeTeamId === null || awayTeamId === null || playerTeamId === null) ? DEFAULT_PLAYER_COLOR : (isHomeTeam ? TEAM1_COLOR : TEAM2_COLOR);
+            const playerGeometry = new THREE.CapsuleGeometry(PLAYER_RADIUS, PLAYER_HEIGHT - (2 * PLAYER_RADIUS), 4, 8);
+            const playerMaterial = new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 1 });
+            const playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+            playerMesh.castShadow = true;
+            playerMesh.position.y = PLAYER_HEIGHT / 2; // Position base at y=0
+            if (player) { player.mesh = playerMesh; } // Store mesh reference in player data
+            else { console.warn(`Player data for ID ${playerId} not found when creating mesh.`); }
+            return playerMesh;
+        }
+
+        // --- Data Handling Functions ---
+
+        // --- Parse Starting Lineups and Initial Positions ---
+        // Extracts team info, player names, numbers, and calculates initial positions from Starting XI events.
+        function parseStartingLineupsAndInitialPositions() {
+            console.log("Parsing Starting XI, positions, jersey numbers, and team names...");
+            homeLineup = []; awayLineup = [];
+            // Clear existing player data
+            for (const id in playersData) { delete playersData[id]; }
+            // Find the two 'Starting XI' events
+            const startingXIEvents = events.filter(e => e.type && e.type.id === 35);
+            if (startingXIEvents.length >= 2) {
+                const team1 = startingXIEvents[0].team; const team2 = startingXIEvents[1].team;
+                // Simple logic to assign home/away (can be improved)
+                if (team1.name.toLowerCase().includes("barcelona")) { homeTeamId = team1.id; awayTeamId = team2.id; homeTeamName = team1.name; awayTeamName = team2.name; }
+                else if (team2.name.toLowerCase().includes("barcelona")) { homeTeamId = team2.id; awayTeamId = team1.id; homeTeamName = team2.name; awayTeamName = team1.name; }
+                else { homeTeamId = team1.id; awayTeamId = team2.id; homeTeamName = team1.name; awayTeamName = team2.name; } // Default assignment
+                console.log(`Determined Teams: Home=${homeTeamName}(${homeTeamId}), Away=${awayTeamName}(${awayTeamId})`);
+                homeTeamNameElement.textContent = homeTeamName; awayTeamNameElement.textContent = awayTeamName; // Update UI
+                // Populate playersData from lineup info
+                startingXIEvents.forEach(event => {
+                    const lineup = event.tactics?.lineup; const teamId = event.team?.id;
+                    if (lineup && teamId) {
+                        const isHome = teamId === homeTeamId; const targetLineup = isHome ? homeLineup : awayLineup;
+                        lineup.forEach(p => {
+                            const playerId = p.player.id;
+                            if (!playersData[playerId]) { // Add player if not already present
+                                playersData[playerId] = {
+                                    id: playerId, name: p.player.name, teamId: teamId, jerseyNumber: p.jersey_number,
+                                    positionId: p.position?.id, positionName: p.position?.name,
+                                    mesh: null, nameSprite: null, lastKnownPosition: null,
+                                    initialFormationPosition: null, freezeFrameTargetPos: null
+                                };
+                                targetLineup.push(playerId); // Add player ID to team lineup array
+                            }
+                        });
+                    }
+                });
+            } else {
+                // Fallback if Starting XI events are missing (less reliable)
+                console.error("Could not find two Starting XI events to determine teams!");
+                homeTeamNameElement.textContent = 'Home'; awayTeamNameElement.textContent = 'Away';
+                const firstEventWithTeam = events.find(e => e.team && e.team.id); if (firstEventWithTeam) homeTeamId = firstEventWithTeam.team.id;
+                const firstOpponentEvent = events.find(e => e.team && e.team.id !== homeTeamId); if (firstOpponentEvent) awayTeamId = firstOpponentEvent.team.id;
+                console.warn(`Fallback Team IDs: Home=${homeTeamId}, Away=${awayTeamId}`);
+                // Might need to populate playersData differently here if lineups are missing
+            }
+            // Calculate initial positions based on generic formation layout
+            console.log("Calculating initial positions from generic layout...");
+            Object.values(playersData).forEach(player => {
+                const isHome = player.teamId === homeTeamId;
+                const calculatedPos = getFormationCoordinates(player.positionId, player.positionName, isHome);
+                if (calculatedPos) {
+                    player.initialFormationPosition = { x: calculatedPos.x, y: calculatedPos.z }; // Store as {x, y} for consistency with event data
+                } else {
+                    console.warn(`Could not calculate formation position for player ${player.name} (${player.positionName}). Placing off-field.`);
+                    player.initialFormationPosition = { x: isHome ? -5 : PITCH_LENGTH + 5, y: PITCH_WIDTH / 2 }; // Place off-field
+                }
+            });
+            console.log("Finished parsing lineups and calculating initial positions.");
+        }
+
+        // --- Generic Formation Layouts ---
+        // Maps StatsBomb position IDs/names to approximate pitch coordinates (0-1 range).
+        const formationLayouts = {
+            1: { name: 'Goalkeeper', x: 0.05, z: 0.50 }, 2: { name: 'Right Back', x: 0.25, z: 0.90 }, 3: { name: 'Right Center Back', x: 0.20, z: 0.65 },
+            4: { name: 'Center Back', x: 0.18, z: 0.50 }, 5: { name: 'Left Center Back', x: 0.20, z: 0.35 }, 6: { name: 'Left Back', x: 0.25, z: 0.10 },
+            7: { name: 'Right Wing Back', x: 0.35, z: 0.90 }, 8: { name: 'Left Wing Back', x: 0.35, z: 0.10 }, 9: { name: 'Right Defensive Midfield', x: 0.38, z: 0.65 },
+            10: { name: 'Center Defensive Midfield', x: 0.35, z: 0.50 }, 11: { name: 'Left Defensive Midfield', x: 0.38, z: 0.35 }, 12: { name: 'Right Midfielder', x: 0.50, z: 0.85 },
+            13: { name: 'Right Center Midfielder', x: 0.50, z: 0.60 }, 14: { name: 'Center Midfielder', x: 0.50, z: 0.50 }, 15: { name: 'Left Center Midfielder', x: 0.50, z: 0.40 },
+            16: { name: 'Left Midfielder', x: 0.50, z: 0.15 }, 17: { name: 'Right Wing', x: 0.65, z: 0.90 }, 18: { name: 'Right Attacking Midfield', x: 0.65, z: 0.65 },
+            19: { name: 'Center Attacking Midfield', x: 0.65, z: 0.50 }, 20: { name: 'Left Attacking Midfield', x: 0.65, z: 0.35 }, 21: { name: 'Left Wing', x: 0.65, z: 0.10 },
+            22: { name: 'Right Center Forward', x: 0.75, z: 0.60 }, 23: { name: 'Center Forward', x: 0.75, z: 0.50 }, 24: { name: 'Left Center Forward', x: 0.75, z: 0.40 },
+            // Add more as needed, or handle unknown positions
+        };
+
+        // --- Calculate World Coordinates from Formation Data ---
+        // Converts the 0-1 formation layout coordinates to world coordinates (pitch dimensions).
+        function getFormationCoordinates(positionId, positionName, isHome) {
+            const layout = formationLayouts; let posData = layout[positionId];
+            // Fallback: try matching by name if ID is unknown or missing
+            if (!posData && positionName) { const lowerCaseName = positionName.toLowerCase(); const foundEntry = Object.entries(layout).find(([id, data]) => data.name?.toLowerCase().includes(lowerCaseName)); if (foundEntry) { posData = foundEntry[1]; } }
+            if (!posData) { console.error(`Position ${positionId}/${positionName} could not be found in formation layout!`); return null; }
+            let worldX, worldZ; const halfPitchLength = PITCH_LENGTH / 2; worldZ = posData.z * PITCH_WIDTH; // Z coordinate is direct mapping
+            // X coordinate depends on whether it's home (left) or away (right) team
+            if (isHome) { worldX = posData.x * halfPitchLength; } // Home team occupies left half
+            else { worldX = (1.0 - posData.x) * halfPitchLength + halfPitchLength; } // Away team occupies right half (mirrored)
+            // Add slight random jitter to avoid perfect alignment
+            worldX += (Math.random() - 0.5) * 1.5; worldZ += (Math.random() - 0.5) * 1.5;
+            // Clamp coordinates to stay within pitch boundaries
+            worldX = Math.max(1, Math.min(PITCH_LENGTH - 1, worldX)); worldZ = Math.max(1, Math.min(PITCH_WIDTH - 1, worldZ));
+            return { x: worldX, z: worldZ };
+        }
+
+        // --- Calculate World Coordinates from Event Location Data ---
+        // Converts StatsBomb event coordinates [x, y] (where y is width) to world coordinates [x, z],
+        // handling team direction based on period.
+        function getWorldCoordinates(location, teamId, period) {
+            if (!location || location.length < 2 || !teamId || !period || !homeTeamId || !awayTeamId) { console.warn("Insufficient data for coord transform:", { location, teamId, period }); return null; }
+            const eventX = location[0]; const eventZ = location[1]; // Note: StatsBomb y is our z
+            const isHomeTeam = teamId === homeTeamId; let worldX, worldZ;
+            // Determine if the team is attacking towards the right (positive X) in this period
+            // Home team attacks right in odd periods (1, 3, ...), Away attacks right in even periods (2, 4, ...)
+            const attacksRight = (isHomeTeam && period % 2 !== 0) || (!isHomeTeam && period % 2 === 0);
+            if (attacksRight) { worldX = eventX; worldZ = eventZ; } // No transformation needed
+            else { worldX = PITCH_LENGTH - eventX; worldZ = PITCH_WIDTH - eventZ; } // Mirror coordinates
+            // Clamp coordinates to pitch boundaries
+            worldX = Math.max(0, Math.min(PITCH_LENGTH, worldX)); worldZ = Math.max(0, Math.min(PITCH_WIDTH, worldZ));
+            return { x: worldX, z: worldZ };
+        }
+
+        // --- Setup Initial Field Positions ---
+        // Places player meshes and name sprites on the field based on calculated initial positions.
+        function setupInitialField() {
+            console.log("Setting up initial field positions (Generic Layout)...");
+            clearField(); // Remove any existing player meshes/sprites first
+            Object.values(playersData).forEach(player => {
+                if (player.initialFormationPosition) {
+                    const initX = player.initialFormationPosition.x; const initZ = player.initialFormationPosition.y; const initMeshY = PLAYER_HEIGHT / 2;
+                    player.mesh = getPlayerMesh(player.id, player.teamId); // Get or create mesh
+                    if (player.mesh) {
+                        player.mesh.position.set(initX, initMeshY, initZ); // Set initial position
+                        scene.add(player.mesh); // Add mesh to scene
+                        player.lastKnownPosition = { x: initX, y: initMeshY, z: initZ }; // Store initial position
+                        // Create and add name sprite
+                        player.nameSprite = createPlayerNameSprite(player.name, player.jerseyNumber);
+                        if (player.nameSprite) { player.nameSprite.position.set(initX, initMeshY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, initZ); scene.add(player.nameSprite); }
+                    }
+                } else { console.warn(`Player ${player.name} has no calculated initial formation position.`); }
+            });
+            console.log("Initial field setup complete.");
+        }
+
+        // --- Clear Player Meshes and Sprites from Field ---
+        // Removes all player meshes and sprites from the scene and resets their state.
+        function clearField() {
+            console.log("Clearing player meshes and sprites...");
+            Object.values(playersData).forEach(player => {
+                // Remove mesh from scene if it exists
+                if (player.mesh && player.mesh.parent) { scene.remove(player.mesh); }
+                // Remove name sprite from scene if it exists
+                if (player.nameSprite && player.nameSprite.parent) { scene.remove(player.nameSprite); }
+                // Reset player state
+                player.mesh = null; player.nameSprite = null;
+                player.lastKnownPosition = player.initialFormationPosition ? { x: player.initialFormationPosition.x, y: PLAYER_HEIGHT / 2, z: player.initialFormationPosition.y } : null;
+                player.freezeFrameTargetPos = null;
+            });
+            console.log("Field cleared.");
+        }
+
+        // --- Simulation Logic Functions ---
+
+        // --- Update Score Display ---
+        // Updates the score shown in the UI overlay.
+        function updateScoreDisplay() {
+            homeScoreElement.textContent = homeScore;
+            awayScoreElement.textContent = awayScore;
+        }
+
+        // --- Reset Simulation ---
+        // Resets the simulation to its initial state *using currently loaded data*.
+        function resetSimulation() {
+            console.log("Resetting simulation state...");
+            isPlaying = false; playPauseBtn.textContent = 'Play'; // Stop playback
+            isProcessingEvent = false; TWEEN.removeAll(); // Stop all active animations
+            cameraShakeActive = false; // Ensure camera shake is stopped
+
+            // Reset game state variables
+            homeScore = 0; awayScore = 0; updateScoreDisplay();
+            updateTimerDisplay(1, 0, 0); eventPlayerNameElement.textContent = "N/A"; eventTypeElement.textContent = "None";
+            currentEventIndex = -1; eventHistoryInvolvedIds = [];
+
+            // Reset player positions and appearance
+            Object.values(playersData).forEach(player => {
+                if (player.mesh && player.initialFormationPosition) {
+                    const initX = player.initialFormationPosition.x; const initZ = player.initialFormationPosition.y; const initMeshY = PLAYER_HEIGHT / 2;
+                    // Stop any existing tweens for this player
+                    if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); player.mesh.userData.tween = null; }
+                    if (player.mesh.userData.fadeTween) { TWEEN.remove(player.mesh.userData.fadeTween); player.mesh.userData.fadeTween = null; }
+                    // Reset position, visibility, opacity, color
+                    player.mesh.position.set(initX, initMeshY, initZ); player.lastKnownPosition = { x: initX, y: initMeshY, z: initZ };
+                    player.freezeFrameTargetPos = null; player.mesh.visible = true; player.mesh.material.opacity = 1;
+                    const isHome = player.teamId === homeTeamId;
+                    const originalColor = (homeTeamId === null || awayTeamId === null || player.teamId === null) ? DEFAULT_PLAYER_COLOR : (isHome ? TEAM1_COLOR : TEAM2_COLOR);
+                    player.mesh.material.color.setHex(originalColor); player.mesh.userData.isHighlighted = false;
+                    // Reset name sprite position and visibility
+                    if (player.nameSprite) { player.nameSprite.position.set(initX, initMeshY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, initZ); player.nameSprite.visible = true; player.nameSprite.material.opacity = 1; }
+                } else if (player.mesh) { // Hide players without initial position (e.g., subs not yet on)
+                    player.mesh.visible = false; if (player.nameSprite) player.nameSprite.visible = false;
+                }
+            });
+
+            // Reset ball position and animation
+            if (ballMesh.userData.tween) { TWEEN.remove(ballMesh.userData.tween); ballMesh.userData.tween = null; }
+            ballMesh.position.set(PITCH_LENGTH / 2, BALL_RADIUS, PITCH_WIDTH / 2);
+            ballMesh.userData.lastSpinPos = null; // Reset last position for spin calculation
+
+            // Reset seek bar visually
+            seekBar.value = 0;
+
+            // Re-enable controls if data was loaded successfully
+            if (!isLoading && events.length > 0) {
+                playPauseBtn.disabled = false;
+                resetBtn.disabled = false;
+                seekBar.disabled = false;
+            } else { // Keep disabled if still loading or error occurred
+                playPauseBtn.disabled = true;
+                resetBtn.disabled = true;
+                seekBar.disabled = true;
+            }
+
+            console.log("Simulation state reset complete.");
+        }
+
+        // --- Calculate State at a Specific Event Index ---
+        // Determines player positions, ball position, score, etc., up to a given event index (for seeking).
+        function calculateStateAtEvent(targetIndex) {
+            console.log(`Calculating state for seek to index: ${targetIndex}`);
+            let tempHomeScore = 0; let tempAwayScore = 0;
+            const tempLastKnownPositions = {}; // Store last known pos {x, y, z} for each player ID
+            const tempEventHistory = []; // Store sets of involved player IDs for recent events
+            // Initialize positions to formation layout
+            Object.values(playersData).forEach(player => { if (player.initialFormationPosition) { tempLastKnownPositions[player.id] = { x: player.initialFormationPosition.x, y: PLAYER_HEIGHT / 2, z: player.initialFormationPosition.y }; } });
+            let tempBallPos = { x: PITCH_LENGTH / 2, y: BALL_RADIUS, z: PITCH_WIDTH / 2 }; // Start ball at center
+
+            // Simulate events up to the target index
+            for (let i = 0; i < targetIndex; i++) {
+                const event = events[i]; if (!event) continue;
+                const eventType = event.type?.name || 'Unknown'; const eventPlayerId = event.player?.id; const eventTeamId = event.team?.id; const eventPeriod = event.period; const eventLocation = event.location;
+
+                // Update score on goal events
+                if (eventType === 'Shot' && event.shot?.outcome?.name === 'Goal' && eventTeamId) { if (eventTeamId === homeTeamId) tempHomeScore++; else if (eventTeamId === awayTeamId) tempAwayScore++; }
+
+                // Track directly involved players for this event
+                const directlyInvolvedSet = new Set(); if (eventPlayerId) directlyInvolvedSet.add(eventPlayerId); if (eventType === 'Pass' && event.pass?.recipient?.id) directlyInvolvedSet.add(event.pass.recipient.id); if (eventType === 'Foul Committed' && event.foul_committed?.opponent?.id) directlyInvolvedSet.add(event.foul_committed.opponent.id); if (eventType === 'Duel' && event.duel?.opponent?.id) directlyInvolvedSet.add(event.duel.opponent.id); // Add more event types as needed
+                tempEventHistory.push(directlyInvolvedSet); if (tempEventHistory.length > RECENT_EVENT_LOOKBACK) tempEventHistory.shift(); // Maintain history window
+
+                // Determine all players whose positions might update (directly involved + freeze frame)
+                const positioningInvolvedSet = new Set(directlyInvolvedSet); const freezeFrameData = event[eventType.toLowerCase()]?.freeze_frame;
+                if (freezeFrameEventTypes.has(eventType) && freezeFrameData && Array.isArray(freezeFrameData)) { freezeFrameData.forEach(p => { if (p.player?.id) positioningInvolvedSet.add(p.player.id); }); }
+
+                // Get event location in world coordinates
+                let eventWorldPos = null; if (eventLocation && eventLocation.length >= 2 && eventTeamId && eventPeriod) { eventWorldPos = getWorldCoordinates(eventLocation, eventTeamId, eventPeriod); }
+
+                // Update player positions based on event data
+                positioningInvolvedSet.forEach(playerId => {
+                    let targetPos = null;
+                    // Prioritize freeze frame location if available
+                    if (freezeFrameEventTypes.has(eventType) && freezeFrameData && Array.isArray(freezeFrameData)) { const ffPlayer = freezeFrameData.find(p => p.player?.id === playerId); if (ffPlayer?.location) { targetPos = getWorldCoordinates(ffPlayer.location, eventTeamId, eventPeriod); } }
+                    // Fallback to other event locations (pass end, event location)
+                    if (!targetPos) { if (eventType === 'Pass' && event.pass?.recipient?.id === playerId && event.pass.end_location) { targetPos = getWorldCoordinates(event.pass.end_location, eventTeamId, eventPeriod); } else if (playerId === eventPlayerId) { targetPos = eventWorldPos; } }
+                    // Update last known position if a target was found
+                    if (targetPos) { tempLastKnownPositions[playerId] = { x: targetPos.x, y: PLAYER_HEIGHT / 2, z: targetPos.z }; }
+                });
+
+                // Update ball position based on event outcome
+                let ballTargetPos = null;
+                if (eventType === 'Pass' && event.pass?.end_location) { ballTargetPos = getWorldCoordinates(event.pass.end_location, eventTeamId, eventPeriod); }
+                else if (eventType === 'Shot' && event.shot?.end_location) { const endPos = getWorldCoordinates(event.shot.end_location, eventTeamId, eventPeriod); if (endPos) { ballTargetPos = { x: endPos.x, y: BALL_RADIUS, z: endPos.z }; if (event.shot.outcome?.name === 'Goal') { ballTargetPos.x = endPos.x > PITCH_LENGTH / 2 ? PITCH_LENGTH : 0; ballTargetPos.z = PITCH_WIDTH / 2; } } } // Place ball in goal center on goal
+                else if (eventType === 'Carry' && event.carry?.end_location) { ballTargetPos = getWorldCoordinates(event.carry.end_location, eventTeamId, eventPeriod); }
+                else if (eventWorldPos) { ballTargetPos = { x: eventWorldPos.x, y: BALL_RADIUS, z: eventWorldPos.z }; } // Default to event location
+                // Update tempBallPos if a valid target was calculated
+                if (ballTargetPos && typeof ballTargetPos.x === 'number' && typeof ballTargetPos.z === 'number') { tempBallPos = { x: ballTargetPos.x, y: BALL_RADIUS, z: ballTargetPos.z }; }
+                else if (ballTargetPos) { console.warn(`Invalid ballTargetPos calculated at index ${i}:`, ballTargetPos); }
+            }
+
+            // Determine which players should be visible based on recent involvement
+            const finalVisiblePlayerIds = new Set(); tempEventHistory.forEach(historySet => { historySet.forEach(id => finalVisiblePlayerIds.add(id)); });
+            // Ensure ball position is valid, default to center if not
+            const finalBallPos = (tempBallPos && typeof tempBallPos.x === 'number' && typeof tempBallPos.y === 'number' && typeof tempBallPos.z === 'number') ? tempBallPos : { x: PITCH_LENGTH / 2, y: BALL_RADIUS, z: PITCH_WIDTH / 2 };
+            if (!finalBallPos || typeof finalBallPos.x !== 'number') { console.warn(`Final calculated ball position invalid for index ${targetIndex}. Resetting to center.`, tempBallPos); }
+            console.log(`State calculation complete. Score: ${tempHomeScore}-${tempAwayScore}`);
+            return { score: { home: tempHomeScore, away: tempAwayScore }, playerPositions: tempLastKnownPositions, ballPosition: finalBallPos, visiblePlayerIds: finalVisiblePlayerIds, eventHistory: tempEventHistory };
+        }
+
+        // --- Seek To Event Function ---
+        // Jumps the simulation state to a specific event index based on user input (seek bar).
+        function seekToEvent(targetIndex) {
+            if (isLoading || isSeeking || targetIndex < 0 || targetIndex >= events.length) { console.warn(`Seek aborted. isLoading: ${isLoading}, isSeeking: ${isSeeking}, targetIndex: ${targetIndex}`); if (!isSeeking) seekBar.value = currentEventIndex < 0 ? 0 : currentEventIndex; return; }
+            console.log(`Seeking to event index: ${targetIndex}`); isSeeking = true;
+            const wasPlaying = isPlaying; if (wasPlaying) { isPlaying = false; playPauseBtn.textContent = 'Play'; } TWEEN.removeAll(); // Pause playback and stop animations
+            cameraShakeActive = false; // Stop any camera shake
+
+            // Calculate the state at the target index
+            const state = calculateStateAtEvent(targetIndex);
+
+            // Apply the calculated state
+            homeScore = state.score.home; awayScore = state.score.away; updateScoreDisplay();
+            // Update player positions and visibility
+            Object.values(playersData).forEach(player => {
+                if (player.mesh) {
+                    const targetPosData = state.playerPositions[player.id]; const targetPos = targetPosData || player.initialFormationPosition; // Use calculated pos or fallback to initial
+                    const isVisible = state.visiblePlayerIds.has(player.id);
+                    // Set position if available
+                    if (targetPos) { const worldX = targetPos.x; const worldZ = targetPos.z ?? targetPos.y; const worldY = targetPos.y === PLAYER_HEIGHT / 2 ? targetPos.y : PLAYER_HEIGHT / 2; player.mesh.position.set(worldX, worldY, worldZ); player.lastKnownPosition = { x: worldX, y: worldY, z: worldZ }; if (player.nameSprite) { player.nameSprite.position.set(worldX, worldY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, worldZ); } }
+                    else { player.mesh.visible = false; if (player.nameSprite) player.nameSprite.visible = false; } // Hide if no position data
+                    // Set visibility and opacity
+                    player.mesh.visible = isVisible; player.mesh.material.opacity = isVisible ? 1 : 0;
+                    if (player.nameSprite) { player.nameSprite.visible = isVisible; player.nameSprite.material.opacity = isVisible ? 1 : 0; }
+                    // Ensure any fade/move tweens are stopped
+                    if (player.mesh.userData.fadeTween) { TWEEN.remove(player.mesh.userData.fadeTween); player.mesh.userData.fadeTween = null; } if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); player.mesh.userData.tween = null; }
+                }
+            });
+            // Update ball position
+            if (state.ballPosition && typeof state.ballPosition.x === 'number' && typeof state.ballPosition.y === 'number' && typeof state.ballPosition.z === 'number') { ballMesh.position.set(state.ballPosition.x, state.ballPosition.y, state.ballPosition.z); }
+            else { console.warn("Invalid ball position received from calculateStateAtEvent. Resetting ball to center.", state.ballPosition); ballMesh.position.set(PITCH_LENGTH / 2, BALL_RADIUS, PITCH_WIDTH / 2); }
+            if (ballMesh.userData.tween) { TWEEN.remove(ballMesh.userData.tween); ballMesh.userData.tween = null; } // Stop ball tween
+            ballMesh.userData.lastSpinPos = null; // Reset spin position
+
+            // Update internal state and UI
+            currentEventIndex = targetIndex - 1; // Set index to *before* the target, so next step processes it
+            eventHistoryInvolvedIds = state.eventHistory; // Restore event history
+            const targetEvent = events[targetIndex];
+            if (targetEvent) { updateTimerDisplay(targetEvent.period, targetEvent.minute, targetEvent.second); eventTypeElement.textContent = targetEvent.type?.name || 'Unknown'; const targetPlayer = targetEvent.player ? playersData[targetEvent.player.id] : null; eventPlayerNameElement.textContent = targetPlayer ? `${targetPlayer.name} (#${targetPlayer.jerseyNumber || '?'})` : 'N/A'; }
+            else { updateTimerDisplay(1, 0, 0); eventTypeElement.textContent = 'None'; eventPlayerNameElement.textContent = 'N/A'; }
+            seekBar.value = targetIndex; // Ensure seek bar visually matches
+            isProcessingEvent = false; console.log(`Seek complete. Current index set to: ${currentEventIndex}`); isSeeking = false; // Release seek lock
+        }
+
+        // --- Handle Seek Bar Input ---
+        // Called when the seek bar value changes due to user interaction.
+        function handleSeekInput(event) {
+            // Ignore input if loading, no events, or seek bar is disabled
+            if (isLoading || !events || events.length === 0 || seekBar.disabled) return;
+            const targetIndex = parseInt(event.target.value, 10);
+            // Pause playback immediately when seeking starts
+            if (isPlaying) {
+                isPlaying = false;
+                playPauseBtn.textContent = 'Play';
+            }
+            // Initiate the seek operation
+            seekToEvent(targetIndex);
+        }
+
+        // --- Mark Event Processing as Complete ---
+        // Resets the processing flag, allowing the next event to be processed if playing.
+        function completeEventProcessing() {
+            isProcessingEvent = false;
+            // console.log(`Event ${currentEventIndex} processing complete.`); // Optional: for debugging timing
+        }
+
+        // --- Helper function to highlight a player ---
+        // Temporarily changes player color and sets a timeout to revert it.
+        function highlightPlayer(playerId, color = HIGHLIGHT_COLOR, duration = HIGHLIGHT_DURATION) {
+            const player = playersData[playerId]; if (!player || !player.mesh) return;
+            const originalColorHex = player.mesh.material.color.getHex();
+            // Store original color only if not already highlighted
+            if (!player.mesh.userData.isHighlighted) { player.mesh.userData.originalColor = originalColorHex; }
+            player.mesh.userData.isHighlighted = true;
+            player.mesh.material.color.setHex(color); // Apply highlight color
+            // Clear existing timeout if any
+            if (player.mesh.userData.highlightTimeout) { clearTimeout(player.mesh.userData.highlightTimeout); }
+            // Set timeout to remove highlight
+            player.mesh.userData.highlightTimeout = setTimeout(() => {
+                if (player.mesh) { // Check if mesh still exists
+                    // Revert color only if this specific highlight timeout is still active
+                    if (player.mesh.userData.isHighlighted && player.mesh.userData.highlightTimeout) {
+                        player.mesh.material.color.setHex(player.mesh.userData.originalColor);
+                        player.mesh.userData.isHighlighted = false;
+                        player.mesh.userData.highlightTimeout = null;
+                    }
+                }
+            }, duration);
+        }
+
+        // --- Show Goal Flash Message ---
+        // Displays the "GOAL!" overlay and schedules it to hide.
+        function showGoalFlash() {
+            goalFlashMessage.style.display = 'block';
+            // Force reflow to restart animation if needed (though CSS animation handles this)
+            goalFlashMessage.style.animation = 'none';
+            goalFlashMessage.offsetHeight; /* trigger reflow */
+            goalFlashMessage.style.animation = '';
+
+            setTimeout(() => {
+                goalFlashMessage.style.display = 'none';
+            }, GOAL_FLASH_DURATION);
+        }
+
+        // --- Camera Shake Function ---
+        // Applies a temporary random shake effect to the camera.
+        function shakeCamera(intensity = CAMERA_SHAKE_INTENSITY, duration = CAMERA_SHAKE_DURATION) {
+            if (cameraShakeActive) return; // Don't start a new shake if one is active
+            cameraShakeActive = true;
+            originalCameraPosition.copy(camera.position); // Store current position
+            const shakeStartTime = performance.now();
+
+            function updateShake() {
+                const elapsed = performance.now() - shakeStartTime;
+                if (elapsed < duration && cameraShakeActive) {
+                    const percentComplete = elapsed / duration;
+                    const damper = 1 - Math.pow(percentComplete, 2); // Dampen shake over time
+                    const shakeAmount = intensity * damper;
+                    // Apply shake relative to the original position before shake started
+                    camera.position.x = originalCameraPosition.x + (Math.random() - 0.5) * shakeAmount;
+                    camera.position.y = originalCameraPosition.y + (Math.random() - 0.5) * shakeAmount;
+                    camera.position.z = originalCameraPosition.z + (Math.random() - 0.5) * shakeAmount;
+                    requestAnimationFrame(updateShake);
+                } else {
+                    camera.position.copy(originalCameraPosition); // Reset position firmly
+                    cameraShakeActive = false;
+                    console.log("Camera shake finished.");
+                }
+            }
+            console.log("Starting camera shake.");
+            updateShake();
+        }
+
+
+        // --- Process the Next Event in the Sequence ---
+        // The core logic function that handles a single event, updates player/ball positions, and triggers animations.
+        function processNextEvent() {
+            // Check if simulation should proceed
+            if (currentEventIndex + 1 >= events.length) { isPlaying = false; playPauseBtn.textContent = 'Play'; isProcessingEvent = false; console.log("Reached end of events."); return; }
+            if (isSeeking || isLoading || isProcessingEvent) { /*console.log(`Skipping processNextEvent. Seeking: ${isSeeking}, Loading: ${isLoading}, Processing: ${isProcessingEvent}`);*/ return; } // Prevent processing if seeking, loading, or already processing
+
+            isProcessingEvent = true; // Lock processing
+            currentEventIndex++;
+            const event = events[currentEventIndex];
+
+            // --- Wrap main logic in try...catch to prevent freezing ---
+            try {
+                if (!event) { console.warn(`Event data missing at index ${currentEventIndex}`); completeEventProcessing(); return; } // Handle missing event data
+
+                // --- Update UI Elements ---
+                const eventType = event.type?.name || 'Unknown';
+                updateTimerDisplay(event.period, event.minute, event.second);
+                eventTypeElement.textContent = eventType;
+                const eventPlayer = event.player ? playersData[event.player.id] : null;
+                const eventPlayerId = event.player?.id;
+                eventPlayerNameElement.textContent = eventPlayer ? `${eventPlayer.name} (#${eventPlayer.jerseyNumber || '?'})` : 'N/A';
+                if (!isSeeking) { seekBar.value = currentEventIndex; } // Update seek bar visually during playback
+
+                // --- Calculate Durations and Completion Callback ---
+                const durationMultiplier = 1.0 / playbackSpeed; // Adjust timing based on speed
+                // Base completion function - schedules call to completeEventProcessing
+                const complete = (delay = 0) => {
+                    setTimeout(() => {
+                        completeEventProcessing();
+                    }, delay); // Delay is already scaled by caller
+                };
+
+                // --- Event-Specific Variables ---
+                const isGoal = eventType === 'Shot' && event.shot?.outcome?.name === 'Goal';
+                const hasLocation = event.location && event.location.length === 2;
+                let worldPos = null; // World coordinates of the event location
+                let playerAnimationTween = null; // Holds player movement tween if applicable
+                let ballAnimationTween = null; // Holds ball movement tween if applicable
+                let eventSpecificPause = 0; // Additional pause added for certain events (fouls, freeze frames)
+                let eventHandled = false; // Flag to track if event triggers an animation that handles completion
+
+                // --- Identify Involved Players ---
+                const involvedPlayerIds = new Set();
+                if (eventPlayerId) involvedPlayerIds.add(eventPlayerId);
+                if (eventType === 'Pass' && event.pass?.recipient?.id) involvedPlayerIds.add(event.pass.recipient.id);
+                if (eventType === 'Ball Receipt*' && eventPlayerId) involvedPlayerIds.add(eventPlayerId);
+                if (eventType === 'Foul Committed' && event.foul_committed?.opponent?.id) involvedPlayerIds.add(event.foul_committed.opponent.id);
+                if (eventType === 'Foul Won' && eventPlayerId) involvedPlayerIds.add(eventPlayerId);
+                if (eventType === 'Duel') { if (event.duel?.opponent?.id) involvedPlayerIds.add(event.duel.opponent.id); if (eventPlayerId) involvedPlayerIds.add(eventPlayerId); }
+                if (eventType === 'Substitution') { if (event.substitution?.replacement?.id) involvedPlayerIds.add(event.substitution.replacement.id); if (eventPlayerId) involvedPlayerIds.add(eventPlayerId); }
+                if (eventType === 'Shot' && event.shot?.outcome?.name === 'Saved') { if (event.shot?.freeze_frame) { const opponents = event.shot.freeze_frame.filter(p => !p.teammate && p.player?.id !== eventPlayerId); if (opponents.length === 1) { involvedPlayerIds.add(opponents[0].player.id); } } } // Add GK on save
+                if (eventType === 'Goal Keeper' && eventPlayerId) involvedPlayerIds.add(eventPlayerId);
+
+                const directlyInvolvedPlayerIds = new Set(involvedPlayerIds);
+
+                // --- Handle Freeze Frame Data ---
+                const freezeFrameData = event[eventType.toLowerCase()]?.freeze_frame;
+                const isFreezeFrameEvent = freezeFrameEventTypes.has(eventType);
+                if (isFreezeFrameEvent && freezeFrameData && Array.isArray(freezeFrameData)) {
+                    freezeFrameData.forEach(p => {
+                        if (p.player && p.player.id) {
+                            involvedPlayerIds.add(p.player.id);
+                            if (p.location && p.location.length === 2) {
+                                const freezeFrameWorldPos = getWorldCoordinates(p.location, event.team?.id, event.period);
+                                const playerData = playersData[p.player.id];
+                                if (playerData && freezeFrameWorldPos) {
+                                    playerData.freezeFrameTargetPos = freezeFrameWorldPos;
+                                } else { console.warn(`Could not set freeze frame target for player ID ${p.player.id}.`); }
+                            }
+                        } else { console.warn("Skipping freeze frame player due to missing data:", p); }
+                    });
+                }
+
+                // --- Update Player Visibility (Fade In/Out) ---
+                const currentInvolvedSet = new Set(involvedPlayerIds);
+                eventHistoryInvolvedIds.push(currentInvolvedSet);
+                if (eventHistoryInvolvedIds.length > RECENT_EVENT_LOOKBACK) eventHistoryInvolvedIds.shift();
+                const visiblePlayerIds = new Set();
+                eventHistoryInvolvedIds.forEach(historySet => { historySet.forEach(id => visiblePlayerIds.add(id)); });
+                const checkRecentInvolvement = (playerId) => {
+                    const historyToCheck = Math.min(eventHistoryInvolvedIds.length - 1, PREVIOUS_EVENT_CHECK);
+                    for (let i = 0; i < historyToCheck; i++) {
+                        const historyIndex = eventHistoryInvolvedIds.length - 2 - i;
+                        if (historyIndex >= 0 && eventHistoryInvolvedIds[historyIndex].has(playerId)) return true;
+                    }
+                    return false;
+                };
+
+                if (hasLocation) { worldPos = getWorldCoordinates(event.location, event.team?.id, event.period); }
+
+                // Iterate through all players to update visibility and position
+                Object.values(playersData).forEach(player => {
+                    if (!player || !player.mesh) return;
+
+                    const shouldMeshBeVisible = visiblePlayerIds.has(player.id) || (currentEventIndex < RECENT_EVENT_LOOKBACK - 1);
+                    const isCurrentlyVisible = player.mesh.visible;
+                    const isDirectlyInvolvedThisEvent = directlyInvolvedPlayerIds.has(player.id);
+
+                    // Fade In / Make Visible
+                    if (shouldMeshBeVisible) {
+                        if (player.mesh.userData.fadeTween) { TWEEN.remove(player.mesh.userData.fadeTween); player.mesh.userData.fadeTween = null; }
+                        if (!isCurrentlyVisible || player.mesh.material.opacity < 1) {
+                            player.mesh.visible = true;
+                            player.mesh.material.opacity = 1;
+                            if (!player.mesh.userData.isHighlighted) {
+                                const isHome = player.teamId === homeTeamId;
+                                const originalColor = (homeTeamId === null || awayTeamId === null || player.teamId === null) ? DEFAULT_PLAYER_COLOR : (isHome ? TEAM1_COLOR : TEAM2_COLOR);
+                                player.mesh.material.color.setHex(originalColor);
+                            }
+                        }
+                        if (player.nameSprite) {
+                            const shouldShowName = shouldMeshBeVisible && isDirectlyInvolvedThisEvent;
+                            player.nameSprite.visible = shouldShowName;
+                            player.nameSprite.material.opacity = player.mesh.material.opacity;
+                        }
+                    }
+                    // Fade Out
+                    else if (isCurrentlyVisible && !player.mesh.userData.fadeTween) {
+                        const fadeDuration = FADE_OUT_DURATION * durationMultiplier; const fadeTarget = { opacity: 0 };
+                        const fadeTween = new TWEEN.Tween(player.mesh.material).to(fadeTarget, fadeDuration).easing(TWEEN.Easing.Quadratic.Out).onComplete(() => { player.mesh.visible = false; player.mesh.userData.fadeTween = null; }).start();
+                        player.mesh.userData.fadeTween = fadeTween;
+                        if (player.nameSprite) { new TWEEN.Tween(player.nameSprite.material).to(fadeTarget, fadeDuration).easing(TWEEN.Easing.Quadratic.Out).onComplete(() => { player.nameSprite.visible = false; }).start(); }
+                    }
+
+                    // Update Player Position
+                    if (shouldMeshBeVisible) {
+                        const isCurrentlyInvolved = involvedPlayerIds.has(player.id);
+                        if (isCurrentlyInvolved && eventType !== 'Carry' && eventType !== 'Substitution' && eventType !== 'Block' && eventType !== 'Goal Keeper' && eventType !== 'Foul Committed' && eventType !== 'Foul Won') {
+                            let targetWorldPos = null;
+                            if (isFreezeFrameEvent && player.freezeFrameTargetPos) { targetWorldPos = player.freezeFrameTargetPos; }
+                            else if (eventType === 'Pass' && event.pass?.recipient?.id === player.id && event.pass.end_location) { targetWorldPos = getWorldCoordinates(event.pass.end_location, event.team?.id, event.period); }
+                            else if (eventType === 'Shot' && event.shot?.outcome?.name === 'Saved' && player.positionName?.toLowerCase().includes('goalkeeper')) { if (event.shot.end_location) targetWorldPos = getWorldCoordinates(event.shot.end_location, event.team?.id, event.period); else targetWorldPos = worldPos; }
+                            else if ((eventType === 'Ball Recovery' || eventType === 'Interception' || eventType === 'Ball Receipt*') && player.id === eventPlayerId) { targetWorldPos = worldPos; }
+                            else if (eventType === 'Duel' && involvedPlayerIds.has(player.id)) { targetWorldPos = worldPos; }
+                            else if (player.id === eventPlayerId) { targetWorldPos = worldPos; }
+
+                            if (targetWorldPos && player.lastKnownPosition) {
+                                const targetX = targetWorldPos.x; const targetZ = targetWorldPos.z; const targetY = PLAYER_HEIGHT / 2;
+                                const positionChanged = Math.abs(targetX - player.lastKnownPosition.x) > 0.1 || Math.abs(targetZ - player.lastKnownPosition.z) > 0.1;
+                                const wasRecentlyInvolved = checkRecentInvolvement(player.id);
+
+                                if ((positionChanged && wasRecentlyInvolved) || isFreezeFrameEvent || eventType === 'Ball Recovery' || eventType === 'Interception' || eventType === 'Duel' || eventType === 'Ball Receipt*') {
+                                    const currentPos = { x: player.mesh.position.x, y: player.mesh.position.y, z: player.mesh.position.z };
+                                    const targetPos = { x: targetX, y: targetY, z: targetZ };
+                                    const moveDuration = (isFreezeFrameEvent || eventType === 'Ball Recovery' || eventType === 'Interception' || eventType === 'Duel' || eventType === 'Ball Receipt*' ? PLAYER_MOVE_DURATION * 0.5 : PLAYER_MOVE_DURATION) * durationMultiplier;
+                                    if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); }
+                                    const tween = new TWEEN.Tween(currentPos)
+                                        .to(targetPos, moveDuration)
+                                        .easing(TWEEN.Easing.Cubic.InOut) // Use Cubic InOut for smoother movement
+                                        .onUpdate(() => {
+                                            player.mesh.position.set(currentPos.x, currentPos.y, currentPos.z);
+                                            if (player.nameSprite && player.nameSprite.visible) { player.nameSprite.position.set(currentPos.x, currentPos.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, currentPos.z); }
+                                        })
+                                        .onComplete(() => {
+                                            player.mesh.userData.tween = null;
+                                            player.mesh.position.set(targetX, targetY, targetZ);
+                                            if (player.nameSprite && player.nameSprite.visible) { player.nameSprite.position.set(targetX, targetY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, targetZ); }
+                                        })
+                                        .start();
+                                    player.mesh.userData.tween = tween;
+                                } else {
+                                    if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); player.mesh.userData.tween = null; }
+                                    player.mesh.position.set(targetX, targetY, targetZ);
+                                    if (player.nameSprite && player.nameSprite.visible) { player.nameSprite.position.set(targetX, targetY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, targetZ); }
+                                }
+                                player.lastKnownPosition = { x: targetX, y: targetY, z: targetZ };
+                            }
+                            else if (player.lastKnownPosition) {
+                                if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); player.mesh.userData.tween = null; }
+                                player.mesh.position.set(player.lastKnownPosition.x, player.lastKnownPosition.y, player.lastKnownPosition.z);
+                                if (player.nameSprite && player.nameSprite.visible) { player.nameSprite.position.set(player.lastKnownPosition.x, player.lastKnownPosition.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, player.lastKnownPosition.z); }
+                            }
+                        }
+                        else if (!isCurrentlyInvolved && eventType !== 'Carry' && eventType !== 'Substitution' && eventType !== 'Block' && eventType !== 'Goal Keeper') {
+                             if (player.lastKnownPosition) {
+                                if (player.mesh.userData.tween) { TWEEN.remove(player.mesh.userData.tween); player.mesh.userData.tween = null; }
+                                player.mesh.position.set(player.lastKnownPosition.x, player.lastKnownPosition.y, player.lastKnownPosition.z);
+                                if (player.nameSprite && player.nameSprite.visible) { player.nameSprite.position.set(player.lastKnownPosition.x, player.lastKnownPosition.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, player.lastKnownPosition.z); }
+                            }
+                        }
+                    }
+                    player.freezeFrameTargetPos = null;
+                }); // End player loop
+
+                // --- Handle Specific Event Types ---
+                const passEvent = eventType === 'Pass' && event.pass?.end_location && worldPos;
+                const shotEvent = eventType === 'Shot' && event.shot?.end_location && worldPos;
+                const carryEvent = eventType === 'Carry' && event.carry?.end_location && worldPos && eventPlayer;
+                const clearanceEvent = eventType === 'Clearance' && worldPos && eventPlayerId;
+                const recoveryEvent = (eventType === 'Ball Recovery' || eventType === 'Interception') && worldPos && eventPlayerId;
+                const duelEvent = eventType === 'Duel' && worldPos && event.duel?.opponent?.id && eventPlayerId;
+                const foulEvent = eventType === 'Foul Committed' && worldPos && eventPlayerId;
+                const foulWonEvent = eventType === 'Foul Won' && worldPos && eventPlayerId;
+                const errorEvent = eventType === 'Error' && eventPlayerId;
+                const gkEvent = eventType === 'Goal Keeper' && eventPlayerId && worldPos;
+                const substitutionEvent = eventType === 'Substitution' && event.substitution?.replacement?.id && eventPlayerId;
+                const halfStartEvent = eventType === 'Half Start';
+                const halfEndEvent = eventType === 'Half End';
+                const gkSaveEvent = eventType === 'Shot' && event.shot?.outcome?.name === 'Saved';
+                const badBehaviourEvent = eventType === 'Bad Behaviour' && eventPlayerId;
+                const ballReceiptEvent = eventType === 'Ball Receipt*' && eventPlayerId;
+                const blockEvent = eventType === 'Block' && worldPos && eventPlayerId;
+                const miscontrolEvent = eventType === 'Miscontrol' && worldPos && eventPlayerId;
+                const pressureEvent = eventType === 'Pressure' && worldPos && eventPlayerId;
+                const tacticalShiftEvent = eventType === 'Tactical Shift';
+
+                if (shotEvent && isFreezeFrameEvent) {
+                    eventSpecificPause = FREEZE_FRAME_PAUSE_DURATION * durationMultiplier;
+                }
+
+                // --- Event Logic Branching ---
+                if (passEvent) {
+                    const endWorldPos = getWorldCoordinates(event.pass.end_location, event.team?.id, event.period);
+                    if (endWorldPos) {
+                        ballAnimationTween = animateBall(endWorldPos.x, endWorldPos.z, worldPos.x, worldPos.z, 'pass');
+                        if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                        else { complete(); }
+                        eventHandled = true;
+                    }
+                }
+                else if (shotEvent) { /* Handled later */ }
+                else if (carryEvent) {
+                    const endWorldPos = getWorldCoordinates(event.carry.end_location, event.team?.id, event.period);
+                    if (endWorldPos && eventPlayer.mesh) {
+                        const startPos = { x: eventPlayer.mesh.position.x, y: eventPlayer.mesh.position.y, z: eventPlayer.mesh.position.z };
+                        const targetPos = { x: endWorldPos.x, y: PLAYER_HEIGHT / 2, z: endWorldPos.z };
+                        const distance = eventPlayer.mesh.position.distanceTo(new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z));
+                        const carryDuration = Math.max(MIN_CARRY_DURATION, (distance / CARRY_SPEED) * 1000 * durationMultiplier);
+                        if (eventPlayer.mesh.userData.tween) { TWEEN.remove(eventPlayer.mesh.userData.tween); }
+                        playerAnimationTween = new TWEEN.Tween(startPos)
+                            .to(targetPos, carryDuration)
+                            .easing(TWEEN.Easing.Cubic.InOut) // Use Cubic InOut for smoother carry
+                            .onUpdate(() => {
+                                eventPlayer.mesh.position.set(startPos.x, startPos.y, startPos.z);
+                                ballMesh.position.set(startPos.x, BALL_RADIUS, startPos.z);
+                                if (eventPlayer.nameSprite && eventPlayer.nameSprite.visible) { eventPlayer.nameSprite.position.set(startPos.x, startPos.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, startPos.z); }
+                            })
+                            .onComplete(() => {
+                                eventPlayer.mesh.userData.tween = null;
+                                eventPlayer.mesh.position.set(targetPos.x, targetPos.y, targetPos.z);
+                                ballMesh.position.set(targetPos.x, BALL_RADIUS, targetPos.z);
+                                if (eventPlayer.nameSprite) { eventPlayer.nameSprite.position.set(targetPos.x, targetPos.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, targetPos.z); }
+                                eventPlayer.lastKnownPosition = { ...targetPos };
+                                completeEventProcessing();
+                            })
+                            .start();
+                        eventPlayer.mesh.userData.tween = playerAnimationTween;
+                        eventHandled = true;
+                    }
+                }
+                else if (clearanceEvent) {
+                    const targetX = PITCH_LENGTH / 2; const targetZ = worldPos.z + (Math.random() - 0.5) * 40;
+                    ballAnimationTween = animateBall(targetX, targetZ, worldPos.x, worldPos.z, 'shot');
+                    highlightPlayer(eventPlayerId);
+                    if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                    else { complete(); }
+                    eventHandled = true;
+                }
+                else if (recoveryEvent) {
+                    if (eventPlayer.mesh && worldPos) {
+                        ballAnimationTween = animateBall(worldPos.x, worldPos.z, ballMesh.position.x, ballMesh.position.z, 'default');
+                        highlightPlayer(eventPlayerId);
+                        if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                        else { complete(); }
+                        eventHandled = true;
+                    }
+                }
+                else if (blockEvent) {
+                    if (ballMesh.userData.tween) { TWEEN.remove(ballMesh.userData.tween); ballMesh.userData.tween = null; }
+                    highlightPlayer(eventPlayerId);
+                    eventHandled = false;
+                }
+                else if (duelEvent) {
+                    highlightPlayer(eventPlayerId);
+                    highlightPlayer(event.duel.opponent.id);
+                    eventHandled = false;
+                }
+                else if (foulEvent) {
+                    TWEEN.removeAll();
+                    highlightPlayer(eventPlayerId, FOUL_HIGHLIGHT_COLOR);
+                    eventSpecificPause += SHORT_PAUSE_DURATION * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (foulWonEvent) {
+                    TWEEN.removeAll();
+                    highlightPlayer(eventPlayerId, HIGHLIGHT_COLOR);
+                    eventSpecificPause += (SHORT_PAUSE_DURATION * 0.5) * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (errorEvent) {
+                    highlightPlayer(eventPlayerId, HIGHLIGHT_COLOR, HIGHLIGHT_DURATION * 0.75);
+                    eventHandled = false;
+                }
+                else if (miscontrolEvent) {
+                    highlightPlayer(eventPlayerId, HIGHLIGHT_COLOR, HIGHLIGHT_DURATION * 0.75);
+                    const offsetX = (Math.random() - 0.5) * 2 * MISCONTROL_DISTANCE;
+                    const offsetZ = (Math.random() - 0.5) * 2 * MISCONTROL_DISTANCE;
+                    if (worldPos) {
+                        const targetX = worldPos.x + offsetX; const targetZ = worldPos.z + offsetZ;
+                        ballAnimationTween = animateBall(targetX, targetZ, worldPos.x, worldPos.z, 'default');
+                        if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                        else { complete(); }
+                        eventHandled = true;
+                    } else { eventHandled = false; }
+                }
+                else if (pressureEvent) {
+                    highlightPlayer(eventPlayerId);
+                    eventHandled = false;
+                }
+                else if (gkEvent) {
+                    const gkOutcome = event.goalkeeper?.outcome?.name;
+                    highlightPlayer(eventPlayerId);
+                    if (gkOutcome === 'Claim' || gkOutcome === 'Collected') {
+                        ballAnimationTween = animateBall(worldPos.x, worldPos.z, ballMesh.position.x, ballMesh.position.z, 'default');
+                        if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(SHORT_PAUSE_DURATION * 0.5 * durationMultiplier); }); }
+                        else { complete(SHORT_PAUSE_DURATION * 0.5 * durationMultiplier); }
+                        eventHandled = true;
+                    } else if (gkOutcome === 'Punch') {
+                        const targetX = worldPos.x + (Math.random() - 0.5) * 15; const targetZ = worldPos.z + (Math.random() - 0.5) * 15;
+                        ballAnimationTween = animateBall(targetX, targetZ, worldPos.x, worldPos.z, 'default');
+                        if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(SHORT_PAUSE_DURATION * 0.5 * durationMultiplier); }); }
+                        else { complete(SHORT_PAUSE_DURATION * 0.5 * durationMultiplier); }
+                        eventHandled = true;
+                    } else {
+                        eventSpecificPause += (SHORT_PAUSE_DURATION * 0.5) * durationMultiplier;
+                        eventHandled = false;
+                    }
+                }
+                else if (substitutionEvent) {
+                    console.log(`Substitution: ${eventPlayer.name} OUT, ${event.substitution.replacement.name} IN`);
+                    const playerOff = eventPlayer; const playerOnData = event.substitution.replacement; const playerOnId = playerOnData.id;
+                    if (playerOff && playerOff.mesh) {
+                        const fadeDuration = FADE_OUT_DURATION * durationMultiplier; const fadeTarget = { opacity: 0 };
+                        new TWEEN.Tween(playerOff.mesh.material).to(fadeTarget, fadeDuration).easing(TWEEN.Easing.Quadratic.Out).onComplete(() => { if (playerOff.mesh) scene.remove(playerOff.mesh); }).start();
+                        if (playerOff.nameSprite) { new TWEEN.Tween(playerOff.nameSprite.material).to(fadeTarget, fadeDuration).easing(TWEEN.Easing.Quadratic.Out).onComplete(() => { if (playerOff.nameSprite) scene.remove(playerOff.nameSprite); }).start(); }
+                    }
+                    let playerOn = playersData[playerOnId];
+                    if (!playerOn) {
+                        console.warn(`Sub player ${playerOnData.name} not found in initial data. Creating.`);
+                        const teamId = event.team?.id;
+                        if (teamId) {
+                            playersData[playerOnId] = { id: playerOnId, name: playerOnData.name, teamId: teamId, jerseyNumber: null, positionId: null, positionName: 'Substitute', mesh: null, nameSprite: null, lastKnownPosition: null, initialFormationPosition: null, freezeFrameTargetPos: null };
+                            playerOn = playersData[playerOnId];
+                        } else { console.error("Cannot create substitute player without team ID!"); }
+                    }
+                    if (playerOn) {
+                        playerOn.mesh = getPlayerMesh(playerOnId, playerOn.teamId);
+                        playerOn.nameSprite = createPlayerNameSprite(playerOn.name, playerOn.jerseyNumber);
+                        const subPosX = PITCH_LENGTH / 2; const subPosY = PLAYER_HEIGHT / 2; const subPosZ = SIDELINE_Z;
+                        if (playerOn.mesh) {
+                            playerOn.mesh.position.set(subPosX, subPosY, subPosZ); playerOn.mesh.visible = true; playerOn.mesh.material.opacity = 0; scene.add(playerOn.mesh);
+                            new TWEEN.Tween(playerOn.mesh.material).to({ opacity: 1 }, FADE_OUT_DURATION * durationMultiplier).start();
+                            playerOn.lastKnownPosition = { x: subPosX, y: subPosY, z: subPosZ };
+                        }
+                        if (playerOn.nameSprite) {
+                            playerOn.nameSprite.position.set(subPosX, subPosY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, subPosZ); playerOn.nameSprite.visible = true; playerOn.nameSprite.material.opacity = 0; scene.add(playerOn.nameSprite);
+                            new TWEEN.Tween(playerOn.nameSprite.material).to({ opacity: 1 }, FADE_OUT_DURATION * durationMultiplier).start();
+                        }
+                    }
+                    eventSpecificPause += SHORT_PAUSE_DURATION * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (halfEndEvent) {
+                    console.log("Half End"); isPlaying = false; playPauseBtn.textContent = 'Play';
+                    eventSpecificPause += (SHORT_PAUSE_DURATION * 2) * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (halfStartEvent) {
+                    console.log("Half Start");
+                    if (ballMesh.userData.tween) TWEEN.remove(ballMesh.userData.tween);
+                    ballMesh.position.set(PITCH_LENGTH / 2, BALL_RADIUS, PITCH_WIDTH / 2);
+                    Object.values(playersData).forEach(player => {
+                        if (player.mesh && player.initialFormationPosition) {
+                            const initX = player.initialFormationPosition.x; const initZ = player.initialFormationPosition.y; const initMeshY = PLAYER_HEIGHT / 2;
+                            if (player.mesh.userData.tween) TWEEN.remove(player.mesh.userData.tween);
+                            player.mesh.position.set(initX, initMeshY, initZ);
+                            player.lastKnownPosition = { x: initX, y: initMeshY, z: initZ };
+                            if (player.nameSprite) { player.nameSprite.position.set(initX, initMeshY + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET, initZ); }
+                        }
+                    });
+                    eventSpecificPause += SHORT_PAUSE_DURATION * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (badBehaviourEvent) {
+                    highlightPlayer(eventPlayerId, FOUL_HIGHLIGHT_COLOR);
+                    eventSpecificPause += SHORT_PAUSE_DURATION * durationMultiplier;
+                    eventHandled = false;
+                }
+                else if (ballReceiptEvent) {
+                    if (event.ball_receipt?.outcome?.name === 'Incomplete') {
+                        highlightPlayer(eventPlayerId, HIGHLIGHT_COLOR, HIGHLIGHT_DURATION);
+                        const offsetX = (Math.random() - 0.5) * 2 * MISCONTROL_DISTANCE;
+                        const offsetZ = (Math.random() - 0.5) * 2 * MISCONTROL_DISTANCE;
+                        if (worldPos) {
+                            const targetX = worldPos.x + offsetX; const targetZ = worldPos.z + offsetZ;
+                            ballAnimationTween = animateBall(targetX, targetZ, worldPos.x, worldPos.z, 'default');
+                            if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                            else { complete(); }
+                            eventHandled = true;
+                        } else { eventHandled = false; }
+                    } else {
+                        highlightPlayer(eventPlayerId, HIGHLIGHT_COLOR, HIGHLIGHT_DURATION * 0.5);
+                        eventHandled = false;
+                    }
+                }
+                else if (tacticalShiftEvent) {
+                    console.log("Tactical Shift occurred (no visualization implemented). Formation:", event.tactics?.formation);
+                    eventHandled = false;
+                }
+                // Default ball movement
+                else if (worldPos && !passEvent && !shotEvent && !carryEvent && !clearanceEvent && !recoveryEvent && !duelEvent && !foulEvent && !substitutionEvent && !halfStartEvent && !halfEndEvent && !badBehaviourEvent && !ballReceiptEvent && !blockEvent && !gkEvent && !miscontrolEvent && !pressureEvent && !tacticalShiftEvent) {
+                    ballAnimationTween = animateBall(worldPos.x, worldPos.z, null, null, 'default');
+                    if (ballAnimationTween) { ballAnimationTween.onComplete(() => { ballAnimationTween = null; complete(); }); }
+                    else { complete(); }
+                    eventHandled = true;
+                }
+
+                // --- Handle Shot Animation (potentially delayed) ---
+                if (shotEvent) {
+                    const executeShotAnimation = () => {
+                        console.log(`Executing shot animation for event ${currentEventIndex}. Goal: ${isGoal}`);
+                        const endWorldPos = getWorldCoordinates(event.shot.end_location, event.team?.id, event.period);
+                        if (endWorldPos) {
+                            let targetX = endWorldPos.x; let targetZ = endWorldPos.z;
+                            if (isGoal) {
+                                targetX = endWorldPos.x > PITCH_LENGTH / 2 ? PITCH_LENGTH : 0;
+                                targetZ = PITCH_WIDTH / 2;
+                                showGoalFlash();
+                                shakeCamera(); // Add camera shake on goal
+                                if (event.team?.id === homeTeamId) homeScore++; else if (event.team?.id === awayTeamId) awayScore++;
+                                updateScoreDisplay();
+                                console.log(`Goal! Score: ${homeScore}-${awayScore}`);
+                            }
+                            else if (gkSaveEvent) {
+                                let gkPos = null;
+                                const opponents = event.shot.freeze_frame?.filter(p => !p.teammate && p.player?.id !== eventPlayerId);
+                                if (opponents?.length === 1) {
+                                    const gkData = playersData[opponents[0].player.id];
+                                    if (gkData?.lastKnownPosition) gkPos = gkData.lastKnownPosition;
+                                    highlightPlayer(opponents[0].player.id, HIGHLIGHT_COLOR);
+                                }
+                                if (gkPos) {
+                                    const shotVector = new THREE.Vector2(targetX - worldPos.x, targetZ - worldPos.z).normalize();
+                                    const distToGK = Math.sqrt(Math.pow(gkPos.x - worldPos.x, 2) + Math.pow(gkPos.z - worldPos.z, 2));
+                                    targetX = worldPos.x + shotVector.x * Math.max(0, distToGK - PLAYER_RADIUS * 2);
+                                    targetZ = worldPos.z + shotVector.y * Math.max(0, distToGK - PLAYER_RADIUS * 2);
+                                }
+                            }
+                            ballAnimationTween = animateBall(targetX, targetZ, worldPos.x, worldPos.z, 'shot');
+                            if (ballAnimationTween) {
+                                ballAnimationTween.onComplete(() => {
+                                    ballAnimationTween = null;
+                                    let completionDelay = 0;
+                                    if (isGoal) { completionDelay = GOAL_PAUSE_DURATION * durationMultiplier; }
+                                    else if (gkSaveEvent) { completionDelay = SHORT_PAUSE_DURATION * durationMultiplier; }
+                                    complete(completionDelay);
+                                });
+                            } else {
+                                let completionDelay = 0;
+                                if (isGoal) { completionDelay = GOAL_PAUSE_DURATION * durationMultiplier; }
+                                else if (gkSaveEvent) { completionDelay = SHORT_PAUSE_DURATION * durationMultiplier; }
+                                complete(completionDelay);
+                            }
+                        } else {
+                             console.warn(`Could not get shot end position for event ${currentEventIndex}`);
+                             complete(isGoal ? GOAL_PAUSE_DURATION * durationMultiplier : 0);
+                        }
+                    };
+
+                    if (eventSpecificPause > 0) { setTimeout(executeShotAnimation, eventSpecificPause); }
+                    else { executeShotAnimation(); }
+                    eventHandled = true;
+                }
+
+                // --- Final Completion Call ---
+                if (!eventHandled) {
+                    complete(EVENT_DELAY_MS * durationMultiplier + eventSpecificPause);
+                }
+
+            } catch (error) {
+                console.error(`--- ERROR processing event index ${currentEventIndex} ---`, error);
+                console.error("Event Data:", event);
+                completeEventProcessing();
+                isPlaying = false;
+                playPauseBtn.textContent = 'Play';
+            } // --- End try...catch ---
+
+        } // --- End processNextEvent ---
+
+
+        // --- Animate Ball with Arc ---
+        // Creates a TWEEN animation for the ball, potentially with a vertical arc and spin.
+        function animateBall(targetX, targetZ, startX = null, startZ = null, eventType = 'default') {
+            try {
+                let baseDuration;
+                switch (eventType) {
+                    case 'pass': baseDuration = BALL_ANIM_DURATION_PASS; break;
+                    case 'shot': baseDuration = BALL_ANIM_DURATION_SHOT; break;
+                    default: baseDuration = BALL_ANIM_DURATION_DEFAULT; break;
+                }
+                let duration = Math.max(50, baseDuration / playbackSpeed);
+
+                const startPos = {
+                    x: startX !== null ? startX : ballMesh.position.x,
+                    y: ballMesh.position.y,
+                    z: startZ !== null ? startZ : ballMesh.position.z
+                };
+                const targetPos = { x: targetX, y: BALL_RADIUS, z: targetZ };
+
+                const distance = Math.sqrt(Math.pow(targetX - startPos.x, 2) + Math.pow(targetZ - startPos.z, 2));
+                const heightFactor = (eventType === 'shot' && distance < 30) ? 0.05 : 0.1;
+                const peakHeight = Math.min(BALL_ARC_HEIGHT, distance * heightFactor) + BALL_RADIUS;
+
+                if (ballMesh.userData.tween) { TWEEN.remove(ballMesh.userData.tween); }
+
+                // Reset last spin position before starting new tween
+                ballMesh.userData.lastSpinPos = { x: startPos.x, y: startPos.y, z: startPos.z };
+
+                const tween = new TWEEN.Tween(startPos)
+                    .to({
+                        x: [startPos.x + (targetX - startPos.x) * 0.5, targetX],
+                        y: [startPos.y + peakHeight, targetPos.y],
+                        z: [startPos.z + (targetZ - startPos.z) * 0.5, targetZ]
+                    }, duration)
+                    .interpolation(TWEEN.Interpolation.Bezier)
+                    .easing(TWEEN.Easing.Linear.None)
+                    .onUpdate(() => {
+                        ballMesh.position.set(startPos.x, startPos.y, startPos.z);
+
+                        // --- Add Ball Spin ---
+                        const lastPos = ballMesh.userData.lastSpinPos;
+                        const currentPos = ballMesh.position;
+                        const deltaX = currentPos.x - lastPos.x;
+                        const deltaZ = currentPos.z - lastPos.z;
+                        const spinSpeed = Math.sqrt(deltaX*deltaX + deltaZ*deltaZ) * 2.5; // Adjust multiplier for spin rate
+
+                        if (spinSpeed > 0.01) { // Only spin if moving significantly
+                            // Calculate rotation axis perpendicular to movement in XZ plane
+                            const rotationAxis = new THREE.Vector3(-deltaZ, 0, deltaX).normalize();
+                            // Apply rotation relative to the world axis
+                            ballMesh.rotateOnWorldAxis(rotationAxis, spinSpeed);
+                        }
+                        // Update last position for next frame's calculation
+                        ballMesh.userData.lastSpinPos = {x: currentPos.x, y: currentPos.y, z: currentPos.z};
+                        // --- End Ball Spin ---
+                    })
+                    .onComplete(() => {
+                        ballMesh.position.set(targetPos.x, targetPos.y, targetPos.z);
+                        ballMesh.userData.tween = null;
+                        ballMesh.userData.lastSpinPos = null; // Clear last spin pos on completion
+                        // The actual completeEventProcessing() is handled by the caller
+                    })
+                    .start();
+
+                ballMesh.userData.tween = tween;
+                return tween;
+            } catch (error) {
+                console.error("Error creating ball animation:", error, { targetX, targetZ, startX, startZ, eventType });
+                return null;
+            }
+        }
+
+        // --- Update Timer Display ---
+        // Formats and displays the game time in the UI.
+        function updateTimerDisplay(period, minute, second) {
+            const min = minute || 0; const sec = second || 0;
+            const minStr = String(min).padStart(2, '0'); const secStr = String(sec).padStart(2, '0');
+            timerElement.textContent = `${minStr}:${secStr}`;
+        }
+
+        // --- Toggle Play/Pause State ---
+        // Handles clicks on the play/pause button.
+        function togglePlayPause() {
+            console.log(`Toggling play/pause. Current state: ${isPlaying}`);
+            if (isLoading || !events || events.length === 0 || isSeeking || playPauseBtn.disabled) {
+                console.warn(`Cannot play. isLoading: ${isLoading}, no data: ${!events || events.length === 0}, isSeeking: ${isSeeking}, or button disabled.`);
+                return;
+            }
+            isPlaying = !isPlaying; playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            if (isPlaying && currentEventIndex === events.length - 1) {
+                console.log("Reached end. Resetting before playing.");
+                resetSimulation();
+                setTimeout(() => {
+                    if (isPlaying && !isProcessingEvent && !isSeeking) {
+                         console.log("Playback started after reset.");
+                         processNextEvent();
+                    }
+                }, 50);
+            }
+            else if (isPlaying && !isProcessingEvent && !isSeeking) {
+                console.log("Playback started/resumed.");
+                processNextEvent();
+            }
+            else if (!isPlaying) {
+                console.log("Playback paused.");
+            }
+        }
+
+        // --- Animation Loop ---
+        // The main loop called by requestAnimationFrame. Updates animations, controls, and renders the scene.
+        function animate(timestamp) {
+            animationFrameId = requestAnimationFrame(animate);
+            lastTimestamp = timestamp;
+
+            // Process next event if playing
+            if (isPlaying && !isProcessingEvent && !isSeeking && !isLoading) {
+                if (currentEventIndex + 1 < events.length) {
+                    processNextEvent();
+                } else {
+                    if (isPlaying) {
+                        console.log("End of events reached during playback.");
+                        isPlaying = false; playPauseBtn.textContent = 'Play';
+                    }
+                }
+            }
+
+            // Update name sprite positions smoothly
+            Object.values(playersData).forEach(player => {
+                if (player?.mesh && player.nameSprite && player.nameSprite.visible) {
+                    const targetX = player.mesh.position.x;
+                    const targetZ = player.mesh.position.z;
+                    const targetY = player.mesh.position.y + PLAYER_HEIGHT / 2 + NAME_Y_OFFSET;
+                    player.nameSprite.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.15);
+                }
+            });
+
+            // Update controls and TWEEN, handle camera shake separately
+            if (!cameraShakeActive && controls) { // Only update controls if camera isn't shaking
+                 controls.update();
+            }
+            if (!isSeeking) { TWEEN.update(timestamp); }
+            if (renderer && scene && camera) { renderer.render(scene, camera); }
+        }
+
+        // --- Window Resize Handler ---
+        // Adjusts camera aspect ratio and renderer size on window resize.
+        function onWindowResize() {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                originalCameraPosition.copy(camera.position); // Update original position on resize
+                console.log("Window resized.");
+            }
+        }
+
+        // --- Front Page Button Listeners ---
+        loadUrlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) {
+                startGame(url);
+            } else {
+                errorMessage.textContent = 'Please enter a URL.';
+            }
+        });
+
+        loadRandomBtn.addEventListener('click', () => {
+            if (randomGameIds.length > 0) {
+                const randomIndex = Math.floor(Math.random() * randomGameIds.length);
+                const randomId = randomGameIds[randomIndex];
+                const randomUrl = `${BASE_DATA_URL}${randomId}.json`;
+                console.log(`Loading random game ID: ${randomId}`);
+                urlInput.value = randomUrl; // Optionally show the selected URL in the input
+                startGame(randomUrl);
+            } else {
+                errorMessage.textContent = 'No random game IDs available.';
+            }
+        });
+
+        // --- Start the application ---
+        setupCore(); // Initialize the core components and wait for user input
+
+    </script>
+</body>
+
+</html>
