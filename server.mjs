@@ -8,14 +8,20 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+import fs from 'fs';
+
 const app = express();
-const port = 3003;
+const port = process.env.PORT || 3003;
+
+const staticDir = fs.existsSync(path.join(__dirname, 'dist'))
+  ? path.join(__dirname, 'dist')
+  : path.join(__dirname, 'public');
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(staticDir));
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
+app.get('*', (req, res) => {
+  res.sendFile(path.join(staticDir, 'index.html'));
 });
 
 app.listen(port, () => {
