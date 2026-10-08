@@ -16,7 +16,11 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart statsbombviz",
+    "pm2:stop": "pm2 stop statsbombviz",
+    "pm2:logs": "pm2 logs statsbombviz"
   },
   "keywords": [],
   "author": "",
